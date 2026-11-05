@@ -6,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { PushService } from './push.service';
 
+const PUSHED_ALERTS = new Set<string>(['NO_ELIGIBLE_WAITER', 'ESCALATION', 'LEFT_WITHOUT_PAYING']);
+
 const fill = (s: string, vars: Record<string, string>) =>
   s.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');
 
@@ -42,6 +44,8 @@ export class NotifierService {
   }
 
   async alertRaised(alert: Alert): Promise<void> {
+    // Phones only buzz for what needs a person now; everything else is on the dashboard via sockets.
+    if (alert.severity !== 'CRITICAL' && !PUSHED_ALERTS.has(alert.type)) return;
     const managers = await this.prisma.userOutletRole.findMany({
       where: { outletId: alert.outletId, role: { in: ['OWNER', 'MANAGER'] }, user: { active: true } },
       select: { userId: true },

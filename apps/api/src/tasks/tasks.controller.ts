@@ -10,6 +10,7 @@ import { hasRoleIn, MANAGER_ROLES, rolesIn } from '../common/roles';
 import { ApiZodQuery, ZodPipe } from '../common/zod';
 import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AssignmentsService } from '../sla/assignments.service';
 
 /** Staff task inbox. Most tasks complete through their real action; call-waiter/water/cutlery are ticked off here. */
 @ApiTags('tasks')
@@ -20,6 +21,7 @@ export class TasksController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifier: NotifierService,
+    private readonly assignments: AssignmentsService,
   ) {}
 
   @Get()
@@ -87,6 +89,12 @@ export class TasksController {
       );
       return tx.task.findUniqueOrThrow({ where: { id: taskId } });
     });
+    // Accepting a greet task is acknowledging the greet assignment (stops re-assignment).
+    if (task.type === 'GREET' && task.seatingId) {
+      const live = await this.assignments.liveFor(task.seatingId, ctx.user.sub);
+      if (live && !live.acknowledgedAt) await this.assignments.acknowledge(ctx, outletId, live.id);
+      return this.prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+    }
     this.notifier.taskUpdated(task);
     return task;
   }

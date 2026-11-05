@@ -29,6 +29,15 @@ export interface SeatingSummary {
   notes: string | null;
   servingWaiter: { id: string; name: string } | null;
   tableIds: string[];
+  /** Greet-SLA assignment in force (M5): who must greet, which attempt, acknowledged yet. */
+  assignment: {
+    waiter: { id: string; name: string };
+    attempt: number;
+    assignedAt: string;
+    acknowledgedAt: string | null;
+  } | null;
+  slaBreachedAt: string | null;
+  escalatedAt: string | null;
 }
 
 export interface TableUpdatedPayload extends Envelope {

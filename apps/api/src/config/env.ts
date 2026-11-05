@@ -26,6 +26,15 @@ const envSchema = z.object({
   PIN_LOCKOUT_SECONDS: z.coerce.number().int().min(10).default(900),
   /** Express `trust proxy`: which hops may set X-Forwarded-For (rate limits key on the client IP). */
   TRUST_PROXY: z.string().default('loopback, uniquelocal'),
+  /** Greet-SLA engine: run the BullMQ worker in this process (turn off on API replicas that should not). */
+  SLA_WORKER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** Safety-net sweep interval; 0 disables (tests). */
+  SLA_RECONCILE_SECONDS: z.coerce.number().int().min(0).default(30),
+  /** Redis key prefix for BullMQ queues (separate apps/tests sharing a Redis). */
+  BULLMQ_PREFIX: z.string().default('dinesense'),
   /** Web Push (VAPID). Push is disabled when the keys are absent; sockets still work. */
   VAPID_PUBLIC_KEY: z.string().min(20).optional(),
   VAPID_PRIVATE_KEY: z.string().min(20).optional(),

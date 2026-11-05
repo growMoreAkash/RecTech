@@ -18,6 +18,18 @@ export interface TableLive {
 const seatingInclude = {
   servingWaiter: { select: { id: true, name: true } },
   tables: { select: { tableId: true } },
+  // The live greet assignment (latest, not expired).
+  assignments: {
+    where: { expiredAt: null },
+    orderBy: { attempt: 'desc' },
+    take: 1,
+    select: {
+      attempt: true,
+      assignedAt: true,
+      acknowledgedAt: true,
+      waiter: { select: { id: true, name: true } },
+    },
+  },
 } as const;
 
 type SeatingRow = Prisma.SeatingGetPayload<{ include: typeof seatingInclude }>;
@@ -35,6 +47,16 @@ export function toSeatingSummary(s: SeatingRow): SeatingSummary {
     notes: s.notes,
     servingWaiter: s.servingWaiter,
     tableIds: s.tables.map((t) => t.tableId).sort(),
+    assignment: s.assignments[0]
+      ? {
+          waiter: s.assignments[0].waiter,
+          attempt: s.assignments[0].attempt,
+          assignedAt: s.assignments[0].assignedAt.toISOString(),
+          acknowledgedAt: iso(s.assignments[0].acknowledgedAt),
+        }
+      : null,
+    slaBreachedAt: iso(s.slaBreachedAt),
+    escalatedAt: iso(s.escalatedAt),
   };
 }
 

@@ -4,7 +4,7 @@ export const SLA_SCHEDULER = Symbol('SLA_SCHEDULER');
 
 /**
  * Greet-SLA timers (docs/PLAN.md §5). TableStateService calls these after commit.
- * M2 ships a logging no-op; M5 provides the BullMQ implementation behind the same interface.
+ * The BullMQ implementation lives in src/sla; the no-op remains for scripts and unit tests.
  */
 export interface SlaScheduler {
   startGreetSla(input: {
@@ -14,6 +14,8 @@ export interface SlaScheduler {
     seatedAt: Date;
   }): Promise<void>;
   cancelGreetSla(input: { seatingId: string }): Promise<void>;
+  /** Re-evaluate a seating now (e.g. after a waiter acknowledges). */
+  run?(seatingId: string): Promise<void>;
 }
 
 @Injectable()
