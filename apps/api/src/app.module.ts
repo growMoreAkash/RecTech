@@ -2,17 +2,22 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
+import { AlertsModule } from './alerts/alerts.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
 import { ENV, type Env } from './config/env';
 import { DevicesModule } from './devices/devices.module';
+import { FloorModule } from './floor/floor.module';
 import { HealthController } from './health/health.controller';
 import { MeController } from './me/me.controller';
 import { OutletsModule } from './outlets/outlets.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { RedisModule } from './redis/redis.module';
+import { StaffModule } from './staff/staff.module';
+import { TableStateModule } from './table-state/table-state.module';
 
 @Module({
   imports: [
@@ -41,6 +46,11 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     OutletsModule,
     DevicesModule,
+    RealtimeModule,
+    TableStateModule,
+    FloorModule,
+    StaffModule,
+    AlertsModule,
   ],
   controllers: [HealthController, MeController],
   providers: [{ provide: APP_FILTER, useClass: ErrorFilter }],

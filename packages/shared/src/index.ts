@@ -3,3 +3,7 @@ export * from './errors';
 export * from './money';
 export * from './schemas/auth';
 export * from './schemas/outlet';
+export * from './table-machine';
+export * from './schemas/floor';
+export * from './realtime';
+export * from './time';

@@ -14,8 +14,29 @@ export interface AuditEntry {
   after?: unknown;
 }
 
+/** Who did it. Staff requests use `fromContext`; jobs and edge devices build one directly. */
+export interface AuditActor {
+  organizationId: string;
+  type: 'USER' | 'DEVICE' | 'SYSTEM' | 'GUEST';
+  id?: string;
+  requestId?: string;
+  ip?: string;
+}
+
+export const actorFromContext = (ctx: RequestContext): AuditActor => ({
+  organizationId: ctx.user.org,
+  type: ctx.user.deviceId ? 'DEVICE' : 'USER',
+  id: ctx.user.sub,
+  requestId: ctx.requestId,
+  ip: ctx.ip,
+});
+
 const json = (v: unknown) =>
-  v === undefined ? undefined : v === null ? Prisma.JsonNull : (v as Prisma.InputJsonValue);
+  v === undefined
+    ? undefined
+    : v === null
+      ? Prisma.JsonNull
+      : (JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue);
 
 /**
  * Append-only audit trail. Call it inside the same transaction as the change it records,
@@ -25,20 +46,24 @@ const json = (v: unknown) =>
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async record(ctx: RequestContext, entry: AuditEntry, tx: Tx = this.prisma): Promise<void> {
+  record(ctx: RequestContext, entry: AuditEntry, tx: Tx = this.prisma): Promise<void> {
+    return this.recordAs(actorFromContext(ctx), entry, tx);
+  }
+
+  async recordAs(actor: AuditActor, entry: AuditEntry, tx: Tx = this.prisma): Promise<void> {
     await tx.auditLog.create({
       data: {
-        organizationId: ctx.user.org,
+        organizationId: actor.organizationId,
         outletId: entry.outletId ?? null,
-        actorType: ctx.user.deviceId ? 'DEVICE' : 'USER',
-        actorId: ctx.user.sub,
+        actorType: actor.type,
+        actorId: actor.id ?? null,
         action: entry.action,
         entityType: entry.entityType,
         entityId: entry.entityId,
         before: json(entry.before),
         after: json(entry.after),
-        requestId: ctx.requestId ?? null,
-        ip: ctx.ip ?? null,
+        requestId: actor.requestId ?? null,
+        ip: actor.ip ?? null,
       },
     });
   }
