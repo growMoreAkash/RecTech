@@ -9,6 +9,8 @@ export const rooms = {
   staff: (userId: string) => `staff:${userId}`,
   kds: (outletId: string, station: string) => `kds:${outletId}:${station}`,
   seating: (seatingId: string) => `seating:${seatingId}`,
+  /** Guests of an outlet: menu availability changes. */
+  menu: (outletId: string) => `menu:${outletId}`,
 };
 
 export interface Envelope {
@@ -55,8 +57,60 @@ export interface ShiftUpdatedPayload extends Envelope {
   userId: string;
 }
 
+export interface CartLineView {
+  id: string;
+  menuItemId: string;
+  name: unknown;
+  vegType: string;
+  quantity: number;
+  unitPricePaise: number;
+  taxRateBps: number;
+  modifiers: { id: string; name: unknown }[];
+  note: string | null;
+  /** True for lines added from this device (filled per request, not over the socket). */
+  mine?: boolean;
+}
+
+export interface CartUpdatedPayload extends Envelope {
+  seatingId: string;
+}
+
+export interface OrderUpdatedPayload extends Envelope {
+  outletId: string;
+  orderId: string;
+  seatingId: string;
+  tableIds: string[];
+  status: string;
+}
+
+export interface KdsChangedPayload extends Envelope {
+  outletId: string;
+  stationCode: string;
+}
+
+export interface MenuAvailabilityPayload extends Envelope {
+  outletId: string;
+  menuItemId: string;
+  isAvailable: boolean;
+}
+
+export interface TaskPayload extends Envelope {
+  id: string;
+  outletId: string;
+  type: string;
+  status: string;
+  tableId: string | null;
+  assigneeId: string | null;
+}
+
 /** Server → client events and their payloads. */
 export interface ServerToClientEvents {
+  'cart.updated': (p: CartUpdatedPayload) => void;
+  'order.updated': (p: OrderUpdatedPayload) => void;
+  'kds.changed': (p: KdsChangedPayload) => void;
+  'menu.availability': (p: MenuAvailabilityPayload) => void;
+  'menu.changed': (p: Envelope & { outletId: string }) => void;
+  'task.created': (p: TaskPayload) => void;
   'table.updated': (p: TableUpdatedPayload) => void;
   'alert.created': (p: AlertPayload) => void;
   'alert.updated': (p: AlertPayload) => void;

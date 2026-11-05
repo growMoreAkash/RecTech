@@ -7,3 +7,5 @@ export * from './table-machine';
 export * from './schemas/floor';
 export * from './realtime';
 export * from './time';
+export * from './menu';
+export * from './schemas/menu';

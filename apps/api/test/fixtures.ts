@@ -127,3 +127,63 @@ export async function login(app: INestApplication, email: string, password = PAS
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 export const randomId = () => randomBytes(8).toString('hex');
+
+export interface MenuFixture {
+  stations: { main: string; bar: string };
+  categoryId: string;
+  portionGroupId: string;
+  portion: { full: string; half: string };
+  items: { dal: string; lassi: string; soldOut: string; breakfast: string };
+}
+
+/** Small menu: Dal (main, requires a portion), Lassi (bar), a sold-out item and one outside its time window. */
+export async function createMenu(prisma: PrismaClient, t: Tenant): Promise<MenuFixture> {
+  const base = { organizationId: t.organizationId, outletId: t.outletId };
+  const main = await prisma.kitchenStation.create({ data: { ...base, code: 'main', name: { en: 'Main' } } });
+  const bar = await prisma.kitchenStation.create({ data: { ...base, code: 'bar', name: { en: 'Bar' } } });
+  const cat = await prisma.menuCategory.create({ data: { ...base, name: { en: 'Food', hi: 'खाना' } } });
+  const group = await prisma.modifierGroup.create({
+    data: {
+      ...base,
+      name: { en: 'Portion' },
+      minSelect: 1,
+      maxSelect: 1,
+      modifiers: {
+        create: [
+          { name: { en: 'Full' }, priceDeltaPaise: 0, sortOrder: 0 },
+          { name: { en: 'Half' }, priceDeltaPaise: -10_000, sortOrder: 1 },
+        ],
+      },
+    },
+    include: { modifiers: { orderBy: { sortOrder: 'asc' } } },
+  });
+  const item = (name: string, stationId: string, pricePaise: number, extra: object = {}) =>
+    prisma.menuItem.create({
+      data: {
+        ...base,
+        categoryId: cat.id,
+        stationId,
+        name: { en: name },
+        vegType: 'VEG',
+        pricePaise,
+        allergens: [],
+        ...extra,
+      },
+    });
+  const dal = await item('Dal Makhani', main.id, 30_000, {
+    modifierGroups: { create: { modifierGroupId: group.id } },
+  });
+  const lassi = await item('Lassi', bar.id, 12_000);
+  const soldOut = await item('Rasmalai', main.id, 16_000, { isAvailable: false });
+  // A window that is never open: Sunday 03:00–03:01.
+  const breakfast = await item('Poha', main.id, 9_000, {
+    availabilityWindows: [{ days: [7], from: '03:00', to: '03:01' }],
+  });
+  return {
+    stations: { main: main.id, bar: bar.id },
+    categoryId: cat.id,
+    portionGroupId: group.id,
+    portion: { full: group.modifiers[0]!.id, half: group.modifiers[1]!.id },
+    items: { dal: dal.id, lassi: lassi.id, soldOut: soldOut.id, breakfast: breakfast.id },
+  };
+}

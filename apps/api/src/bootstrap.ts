@@ -9,6 +9,10 @@ export function configureApp(app: INestApplication): INestApplication {
   const env = app.get<Env>(ENV);
   app.useLogger(app.get(Logger));
   app.use(cookieParser());
+  (app.getHttpAdapter().getInstance() as { set: (k: string, v: unknown) => void }).set(
+    'trust proxy',
+    env.TRUST_PROXY,
+  );
   app.enableCors({ origin: env.CORS_ORIGINS, credentials: true });
   app.setGlobalPrefix('api/v1', { exclude: ['health/live', 'health/ready'] });
   app.enableShutdownHooks();

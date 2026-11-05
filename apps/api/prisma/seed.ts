@@ -194,7 +194,7 @@ async function main(): Promise<void> {
     { name: 'Priya Nair', role: 'MANAGER', email: 'manager@demo.dinesense.in', pin: '9001' },
     { name: 'Kabir Singh', role: 'HOST', email: 'host@demo.dinesense.in', pin: '9002' },
     { name: 'Meera Iyer', role: 'CASHIER', email: 'cashier@demo.dinesense.in', pin: '9003' },
-    { name: 'Ravi Kumar', role: 'CHEF', pin: '9004' },
+    { name: 'Ravi Kumar', role: 'CHEF', email: 'chef@demo.dinesense.in', pin: '9004' },
     { name: 'Anil Sharma', role: 'WAITER', pin: '1001', sections: [0] },
     { name: 'Sunita Reddy', role: 'WAITER', pin: '1002', sections: [0] },
     { name: 'Farhan Ali', role: 'WAITER', pin: '1003', sections: [1] },

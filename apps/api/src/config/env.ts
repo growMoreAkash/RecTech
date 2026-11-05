@@ -19,6 +19,8 @@ const envSchema = z.object({
     ),
   PIN_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(5),
   PIN_LOCKOUT_SECONDS: z.coerce.number().int().min(10).default(900),
+  /** Express `trust proxy`: which hops may set X-Forwarded-For (rate limits key on the client IP). */
+  TRUST_PROXY: z.string().default('loopback, uniquelocal'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

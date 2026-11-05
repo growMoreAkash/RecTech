@@ -10,8 +10,11 @@ import { ConfigModule } from './config/config.module';
 import { ENV, type Env } from './config/env';
 import { DevicesModule } from './devices/devices.module';
 import { FloorModule } from './floor/floor.module';
+import { GuestModule } from './guest/guest.module';
 import { HealthController } from './health/health.controller';
 import { MeController } from './me/me.controller';
+import { MenuModule } from './menu/menu.module';
+import { OrderingModule } from './ordering/ordering.module';
 import { OutletsModule } from './outlets/outlets.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -51,6 +54,9 @@ import { TableStateModule } from './table-state/table-state.module';
     FloorModule,
     StaffModule,
     AlertsModule,
+    MenuModule,
+    OrderingModule,
+    GuestModule,
   ],
   controllers: [HealthController, MeController],
   providers: [{ provide: APP_FILTER, useClass: ErrorFilter }],
