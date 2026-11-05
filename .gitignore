@@ -14,3 +14,4 @@ services/vision/samples/*.mp4
 services/vision/recordings/
 *.sqlite
 .DS_Store
+*.tsbuildinfo

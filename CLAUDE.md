@@ -5,8 +5,9 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 ## Current status
 
 - **Plan:** approved 2026-11-05.
-- **Done:** M0 (tooling skeleton), M1 (schema, seed, API skeleton, auth, tenancy, RBAC, audit).
-- **Next milestone:** M2 — table state machine reducer, floor-plan editor, staff & shifts, live floor map, Socket.IO.
+- **Done:** M0 (tooling), M1 (schema, seed, auth, tenancy, RBAC, audit), M2 (state machine, floor map & editor,
+  staff & shifts, Socket.IO, dashboard). Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M3 — menu manager, guest QR app, shared cart, order approval, KDS.
 
 ## How we work
 
@@ -28,8 +29,15 @@ apps/api            NestJS API (only component that changes table state)
   src/audit         AuditService (call inside the same transaction as the change) + list endpoint
   src/outlets       outlets + OutletSettings
   src/devices       staff terminal / KDS device registration
+  src/table-state   TableStateService (only writer of table state), TableViews, SlaScheduler (no-op until M5)
+  src/floor         floor snapshot, bulk floor-plan save, sections
+  src/staff         staff, shifts, check-in sequence, breaks
+  src/alerts        alerts list / ack / resolve
+  src/realtime      Socket.IO /rt gateway + RealtimeService.emit
   test/             integration tests (*.int.ts) against real Postgres + Redis
-packages/shared     enums (mirror Prisma), zod schemas, error codes, money/GST utils
+apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /staff; react-konva canvases
+  src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor helpers
+packages/shared     enums (mirror Prisma), table-machine (pure reducer), zod schemas, realtime contracts, money/GST, time
 packages/i18n       en/hi catalogs (key parity enforced by test)
 packages/config     shared tsconfig + eslint flat config
 infra/              docker-compose.yml, Dockerfiles
@@ -60,6 +68,12 @@ infra/              docker-compose.yml, Dockerfiles
 - Shared enums in `packages/shared/src/enums.ts` must match Prisma enums (test enforces it).
 - Never rely on `instanceof ZodError` (ESM/CJS dual copies under Vitest) — `ZodPipe` uses `safeParse`.
 - BullMQ custom job ids use `_` separators (`:` is not allowed).
+- Table state changes go only through `TableStateService.apply()`; UIs ask the same shared `transition()` which
+  actions to offer, so buttons never offer what the API would reject.
+- Realtime is a hint: every client refetches on (re)connect; REST is the source of truth.
+- Dashboard: React is pinned to 19.2.x to match the React that Next 15 vendors (react-konva 19.3 refuses it);
+  canvases load via `next/dynamic({ ssr: false })` with a sized placeholder. Every canvas has an accessible list
+  equivalent.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -70,7 +84,7 @@ docker compose -f infra/docker-compose.yml up -d postgres redis   # or local Pos
 pnpm i
 pnpm --filter @dinesense/api db:migrate    # prisma migrate dev (local dev DB only)
 pnpm --filter @dinesense/api seed          # DESTRUCTIVE: wipes and re-seeds the dev DB (refuses NODE_ENV=production)
-pnpm dev                                   # API on :4000, OpenAPI at http://localhost:4000/api/docs
+pnpm dev                                   # API :4000 (OpenAPI /api/docs), dashboard http://localhost:3000
 pnpm lint | pnpm typecheck | pnpm test | pnpm build | pnpm format
 pnpm --filter @dinesense/api test:unit     # no DB needed
 pnpm --filter @dinesense/api test:int      # needs TEST_DATABASE_URL (db name must contain "test")
@@ -106,3 +120,11 @@ staff terminal header `x-device-token: sd_demo_floor_terminal_dev_only`; PINs pr
 | 2026-11-05 | M1: refresh tokens are opaque, hashed, rotated; reuse of a rotated token revokes the whole family               | Accepted         |
 | 2026-11-05 | M1: PIN login locked per user after `PIN_MAX_ATTEMPTS` failures (Redis counter, `PIN_LOCKOUT_SECONDS`)          | Accepted         |
 | 2026-11-05 | M1: modules are CommonJS (Nest-friendly); `packages/*` build to `dist/` and turbo builds deps first             | Accepted         |
+| 2026-11-05 | M2: table rows locked `FOR UPDATE` per transition; client `expectedVersion` → 409 `VERSION_CONFLICT`            | Accepted         |
+| 2026-11-05 | M2: camera vacancy never auto-closes an unpaid table; with an order it raises LEFT_WITHOUT_PAYING               | Accepted         |
+| 2026-11-05 | M2: a waiter-taken order counts as greet; QR orders only if `qrOrderSatisfiesGreet`                             | Accepted         |
+| 2026-11-05 | M2: events that fulfil a task mark it DONE (greet, clean, pay); departures CANCEL the rest                      | Accepted         |
+| 2026-11-05 | M2: the greeting waiter becomes the serving waiter unless one is already assigned                               | Accepted         |
+| 2026-11-05 | M2: only OWNER may grant OWNER/MANAGER; role changes and deactivation revoke sessions                           | Accepted         |
+| 2026-11-05 | M2: shared UI primitives live in the dashboard for now; extract `packages/ui` when guest/staff apps arrive (M3) | Accepted         |
+| 2026-11-05 | M2: Next standalone output; `API_URL` / `NEXT_PUBLIC_API_URL` are build-time values                             | Accepted         |

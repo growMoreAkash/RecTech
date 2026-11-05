@@ -8,6 +8,11 @@
 import { Prisma, PrismaClient, type Role, type VegType } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
+import { resolve } from 'node:path';
+import { loadDotenv } from '../src/config/load-dotenv';
+
+// Works both via `prisma db seed` and when run directly with tsx.
+loadDotenv(resolve(__dirname, '..'));
 
 const prisma = new PrismaClient();
 

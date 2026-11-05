@@ -57,7 +57,10 @@ export class FloorService {
     return {
       sections,
       greetSlaSeconds: settings?.greetSlaSeconds ?? 300,
-      tables: tables.map((t) => ({ ...t, live: byId.get(t.id)! })),
+      // Natural order: T2 before T10.
+      tables: tables
+        .sort((a, b) => a.label.localeCompare(b.label, 'en', { numeric: true }))
+        .map((t) => ({ ...t, live: byId.get(t.id)! })),
     };
   }
 

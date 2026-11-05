@@ -1,7 +1,7 @@
 # Local stack. From the repo root:
 #   docker compose -f infra/docker-compose.yml up -d postgres redis     # infra only (run apps with pnpm dev)
 #   docker compose -f infra/docker-compose.yml up -d --build            # everything built so far
-# Later milestones add: dashboard, guest, staff (M2–M4), vision (profile "edge", M6).
+# Later milestones add: guest, staff (M3–M4), vision (profile "edge", M6).
 name: dinesense
 
 services:
@@ -40,6 +40,16 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: infra/docker/dashboard.Dockerfile
+      args:
+        API_URL: http://api:4000
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports: ['3000:3000']
+    depends_on: [api]
 
 volumes:
   pgdata:
