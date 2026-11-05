@@ -1,7 +1,7 @@
 # Local stack. From the repo root:
 #   docker compose -f infra/docker-compose.yml up -d postgres redis     # infra only (run apps with pnpm dev)
 #   docker compose -f infra/docker-compose.yml up -d --build            # everything built so far
-# Later milestones add: guest, staff (M3–M4), vision (profile "edge", M6).
+#   docker compose -f infra/docker-compose.yml --profile edge up -d vision   # edge vision (on the outlet's mini-PC)
 name: dinesense
 
 services:
@@ -51,6 +51,18 @@ services:
     ports: ['3000:3000']
     depends_on: [api]
 
+  vision:
+    profiles: [edge]
+    build: { context: .., dockerfile: infra/docker/vision.Dockerfile }
+    # DS_API_URL, DS_DEVICE_ID, DS_DEVICE_SECRET (dashboard → Cameras → Register edge device).
+    env_file: [../.env]
+    volumes:
+      - visiondata:/app/data
+      # Dev mode: put sample videos here and use file:///samples/<name>.mp4 as the camera URL.
+      - ../services/vision/samples:/samples:ro
+    restart: unless-stopped
+
 volumes:
+  visiondata:
   pgdata:
   redisdata:

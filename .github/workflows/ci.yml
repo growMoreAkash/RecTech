@@ -47,6 +47,23 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  vision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/vision
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest
+
   e2e:
     # Full manual service in real browsers against the built apps (P1 "done" criterion).
     runs-on: ubuntu-latest

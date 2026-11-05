@@ -19,3 +19,6 @@ services/vision/recordings/
 e2e/test-results/
 e2e/playwright-report/
 dump.rdb
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
