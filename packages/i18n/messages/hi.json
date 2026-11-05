@@ -1,0 +1,34 @@
+{
+  "common": {
+    "appName": "DineSense",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "loading": "लोड हो रहा है…",
+    "retry": "फिर से कोशिश करें"
+  },
+  "auth": {
+    "signIn": "साइन इन करें",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "pin": "पिन",
+    "invalidCredentials": "ईमेल या पासवर्ड गलत है",
+    "deviceNotRegistered": "यह डिवाइस स्टाफ़ लॉगिन के लिए पंजीकृत नहीं है"
+  },
+  "tableStatus": {
+    "VACANT": "खाली",
+    "RESERVED": "आरक्षित",
+    "OCCUPIED": "बैठे हुए",
+    "GREETED": "स्वागत हुआ",
+    "ORDERED": "ऑर्डर हुआ",
+    "SERVED": "परोसा गया",
+    "BILL_REQUESTED": "बिल माँगा",
+    "PAID": "भुगतान हुआ",
+    "NEEDS_CLEANING": "सफ़ाई बाकी",
+    "OUT_OF_SERVICE": "सेवा से बाहर"
+  },
+  "vegType": {
+    "VEG": "शाकाहारी",
+    "NON_VEG": "मांसाहारी",
+    "EGG": "अंडा युक्त"
+  }
+}

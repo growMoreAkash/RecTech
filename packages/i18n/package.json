@@ -1,0 +1,32 @@
+{
+  "name": "@dinesense/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./messages/*.json": "./messages/*.json"
+  },
+  "files": [
+    "dist",
+    "messages"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@dinesense/config": "workspace:*",
+    "@dinesense/shared": "workspace:*",
+    "@types/node": "22.20.5",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

@@ -4,17 +4,36 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 
 ## Current status
 
-- **Phase:** planning. `docs/PLAN.md` is a draft awaiting owner approval. Do not write application code until it is
-  approved.
-- **Next milestone:** M0 (tooling skeleton), then M1.
+- **Plan:** approved 2026-11-05.
+- **Done:** M0 (tooling skeleton), M1 (schema, seed, API skeleton, auth, tenancy, RBAC, audit).
+- **Next milestone:** M2 — table state machine reducer, floor-plan editor, staff & shifts, live floor map, Socket.IO.
 
 ## How we work
 
-1. Plan first; get approval before writing code for a new milestone or changing the stack.
+1. Get approval before starting a new milestone or changing the stack.
 2. One milestone at a time. After each: `pnpm lint && pnpm typecheck && pnpm test` (and `pytest` in Python
    services) must pass; then update this file and write a short demo script in the PR.
 3. Ask before adding any paid service or new infrastructure. Every secret goes in `.env.example` with a comment.
 4. Do not build Phase 3–4 features; leave extension points (see PLAN §11).
+5. Never run destructive DB commands (`prisma migrate reset`, `db push --force-reset`, `TRUNCATE`, seed) against
+   anything but a local dev database, and never bypass Prisma's AI-agent consent guard without the owner's explicit OK.
+
+## Layout
+
+```
+apps/api            NestJS API (only component that changes table state)
+  prisma/           schema.prisma, migrations/, seed.ts
+  src/auth          login, PIN login (device-bound), rotating refresh, global AuthGuard (JWT + RBAC + outlet scope)
+  src/prisma        PrismaService, forOrg() tenant-scoped client
+  src/audit         AuditService (call inside the same transaction as the change) + list endpoint
+  src/outlets       outlets + OutletSettings
+  src/devices       staff terminal / KDS device registration
+  test/             integration tests (*.int.ts) against real Postgres + Redis
+packages/shared     enums (mirror Prisma), zod schemas, error codes, money/GST utils
+packages/i18n       en/hi catalogs (key parity enforced by test)
+packages/config     shared tsconfig + eslint flat config
+infra/              docker-compose.yml, Dockerfiles
+```
 
 ## Architecture (short)
 
@@ -27,42 +46,63 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 ## Conventions
 
 - TypeScript strict everywhere; zod for every input (shared schemas in `packages/shared`).
-- Multi-tenant: every tenant row carries `organizationId` (+ `outletId`); never query tenant data without scope.
-- RBAC: every route has `@Roles(...)` or `@Public()`; default deny.
-- Money in **paise** (`Int`), tax rates in **basis points**. Never use floats for money.
+  Validate with `@Body(new ZodPipe(schema))` and document with `@ApiZodBody(schema)`.
+- Multi-tenant: every tenant row carries `organizationId` (+ `outletId`). Query tenant data through
+  `prisma.forOrg(ctx.user.org)`; the raw client is only for auth bootstrap and system jobs.
+- RBAC: every route has `@Roles(...)`, `@Managers()`, `@Authenticated()` or `@Public()`; a unit test fails otherwise,
+  and the guard denies at runtime. Routes under `/outlets/:outletId/...` are checked against roles _in that outlet_;
+  an outlet the user has no role in returns **404**, not 403.
+- Audit: `AuditService.record(ctx, entry, tx)` inside the same `$transaction` as the change.
+- Money in **paise** (`Int`), tax rates in **basis points**. Never use floats for money. Use `gstForLine()`.
 - Times stored UTC (`timestamptz`), displayed in `Asia/Kolkata`.
 - UI strings only via i18n catalogs (`packages/i18n`: `en`, `hi`). No hard-coded user-facing text.
-- Error shape: `{ error: { code, message, details?, requestId } }`.
+- Error shape: `{ error: { code, message, details?, requestId } }`. Throw `AppError` with an `ErrorCode`.
+- Shared enums in `packages/shared/src/enums.ts` must match Prisma enums (test enforces it).
+- Never rely on `instanceof ZodError` (ESM/CJS dual copies under Vitest) — `ZodPipe` uses `safeParse`.
 - BullMQ custom job ids use `_` separators (`:` is not allowed).
-- Tests: Vitest (TS), pytest (Python), Playwright (e2e), testcontainers for DB/Redis integration.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
-## Commands (planned — become real in M0)
+## Commands
 
 ```bash
-pnpm i                    # install
-pnpm dev                  # all apps via turbo
-pnpm lint | typecheck | test | build
-pnpm --filter api prisma migrate dev
-pnpm --filter api seed
-docker compose -f infra/docker-compose.yml up -d postgres redis
-cd services/vision && uv run ds-vision run --dev   # sample MP4s as cameras
-pnpm e2e                  # Playwright
+cp .env.example .env                       # once; root .env is read by the API and the Prisma CLI
+docker compose -f infra/docker-compose.yml up -d postgres redis   # or local Postgres 16 + Redis 7
+pnpm i
+pnpm --filter @dinesense/api db:migrate    # prisma migrate dev (local dev DB only)
+pnpm --filter @dinesense/api seed          # DESTRUCTIVE: wipes and re-seeds the dev DB (refuses NODE_ENV=production)
+pnpm dev                                   # API on :4000, OpenAPI at http://localhost:4000/api/docs
+pnpm lint | pnpm typecheck | pnpm test | pnpm build | pnpm format
+pnpm --filter @dinesense/api test:unit     # no DB needed
+pnpm --filter @dinesense/api test:int      # needs TEST_DATABASE_URL (db name must contain "test")
 ```
+
+Integration tests run `prisma migrate deploy` on the test DB and never delete data; each test creates its own
+organization. Drop/recreate `dinesense_test` yourself if it grows.
+
+Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinesense.in` / `dinesense123`;
+staff terminal header `x-device-token: sd_demo_floor_terminal_dev_only`; PINs printed by the seed
+(waiters 1001–1006, bussers 2001–2002).
 
 ## Decisions log
 
-| Date | Decision | Status |
-|---|---|---|
-| 2026-11-05 | Stack as in brief (pnpm/Turborepo, NestJS/Prisma/Postgres, Redis/BullMQ, Socket.IO, Next.js, Python vision) | Accepted (brief) |
-| 2026-11-05 | D1 Apache-2.0 detector (RT-DETR/D-FINE or YOLOX), not Ultralytics AGPL | Proposed |
-| 2026-11-05 | D2 Aspect-ratio posture first, RTMPose behind flag | Proposed |
-| 2026-11-05 | D3 HTTPS + HMAC + SQLite outbox for edge events; MQTT deferred | Proposed |
-| 2026-11-05 | D4 VAPID Web Push first; FCM with Expo app later | Proposed |
-| 2026-11-05 | D5 Own auth: password for managers, device-bound PIN for floor staff | Proposed |
-| 2026-11-05 | D6 `SeatingTable` join model for joined tables | Proposed |
-| 2026-11-05 | D7 Paise + basis points for money/tax | Proposed |
-| 2026-11-05 | D8 Node 22, NestJS 11, Prisma 6, Next 15, React 19, Tailwind 4, Vitest | Proposed |
-| 2026-11-05 | D9 next-intl, shared catalogs in `packages/i18n` | Proposed |
-| 2026-11-05 | D10 KDS as a route group inside `apps/dashboard` | Proposed |
-| 2026-11-05 | State machine reducer moved from M5 into M2; added M0 for tooling | Proposed |
+| Date       | Decision                                                                                                        | Status           |
+| ---------- | --------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 2026-11-05 | Stack as in brief (pnpm/Turborepo, NestJS/Prisma/Postgres, Redis/BullMQ, Socket.IO, Next.js, Python vision)     | Accepted (brief) |
+| 2026-11-05 | D1 Apache-2.0 detector (RT-DETR/D-FINE or YOLOX), not Ultralytics AGPL                                          | Accepted         |
+| 2026-11-05 | D2 Aspect-ratio posture first, RTMPose behind flag                                                              | Accepted         |
+| 2026-11-05 | D3 HTTPS + HMAC + SQLite outbox for edge events; MQTT deferred                                                  | Accepted         |
+| 2026-11-05 | D4 VAPID Web Push first; FCM with Expo app later                                                                | Accepted         |
+| 2026-11-05 | D5 Own auth: password for managers, device-bound PIN for floor staff                                            | Accepted         |
+| 2026-11-05 | D6 `SeatingTable` join model for joined tables                                                                  | Accepted         |
+| 2026-11-05 | D7 Paise + basis points for money/tax                                                                           | Accepted         |
+| 2026-11-05 | D8 Node 22, NestJS 11, Prisma 6, Next 15, React 19, Tailwind 4, Vitest (zod 3.25)                               | Accepted         |
+| 2026-11-05 | D9 next-intl, shared catalogs in `packages/i18n`                                                                | Accepted         |
+| 2026-11-05 | D10 KDS as a route group inside `apps/dashboard`                                                                | Accepted         |
+| 2026-11-05 | State machine reducer moved from M5 into M2; added M0 for tooling                                               | Accepted         |
+| 2026-11-05 | M1: integration tests use a real Postgres/Redis from env (CI service containers) instead of testcontainers      | Accepted         |
+| 2026-11-05 | M1: tests are non-destructive (`migrate deploy`, per-test tenants); no `migrate reset` in tooling               | Accepted         |
+| 2026-11-05 | M1: `organizationId` added to `OrderItem` and `GuestSession` so KDS/guest queries are tenant-scoped             | Accepted         |
+| 2026-11-05 | M1: audit via explicit `AuditService.record()` in the same transaction (not an interceptor) — real before/after | Accepted         |
+| 2026-11-05 | M1: refresh tokens are opaque, hashed, rotated; reuse of a rotated token revokes the whole family               | Accepted         |
+| 2026-11-05 | M1: PIN login locked per user after `PIN_MAX_ATTEMPTS` failures (Redis counter, `PIN_LOCKOUT_SECONDS`)          | Accepted         |
+| 2026-11-05 | M1: modules are CommonJS (Nest-friendly); `packages/*` build to `dist/` and turbo builds deps first             | Accepted         |

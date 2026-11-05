@@ -1,0 +1,34 @@
+{
+  "common": {
+    "appName": "DineSense",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "retry": "Try again"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "pin": "PIN",
+    "invalidCredentials": "Email or password is incorrect",
+    "deviceNotRegistered": "This device is not registered for staff login"
+  },
+  "tableStatus": {
+    "VACANT": "Vacant",
+    "RESERVED": "Reserved",
+    "OCCUPIED": "Occupied",
+    "GREETED": "Greeted",
+    "ORDERED": "Ordered",
+    "SERVED": "Served",
+    "BILL_REQUESTED": "Bill requested",
+    "PAID": "Paid",
+    "NEEDS_CLEANING": "Needs cleaning",
+    "OUT_OF_SERVICE": "Out of service"
+  },
+  "vegType": {
+    "VEG": "Veg",
+    "NON_VEG": "Non-veg",
+    "EGG": "Contains egg"
+  }
+}
