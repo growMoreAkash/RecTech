@@ -6,6 +6,8 @@ import type {
   Alert,
   AuditEntry,
   Bill,
+  Camera,
+  EdgeDevice,
   FloorSnapshot,
   KdsBoard,
   Menu,
@@ -26,7 +28,23 @@ export const qk = {
   orders: (o: string) => ['outlet', o, 'orders'] as const,
   kds: (o: string, station: string) => ['outlet', o, 'kds', station] as const,
   bills: (o: string) => ['outlet', o, 'bills'] as const,
+  cameras: (o: string) => ['outlet', o, 'cameras'] as const,
 };
+
+/** Cameras + edge devices (managers). Polled so the health wall stays current between socket hints. */
+export const useCameras = (outletId: string) =>
+  useQuery({
+    queryKey: qk.cameras(outletId),
+    queryFn: () => api<Camera[]>(`/outlets/${outletId}/cameras`),
+    refetchInterval: 30_000,
+  });
+
+export const useEdgeDevices = (outletId: string) =>
+  useQuery({
+    queryKey: [...qk.cameras(outletId), 'devices'],
+    queryFn: () => api<EdgeDevice[]>(`/outlets/${outletId}/edge-devices`),
+    refetchInterval: 30_000,
+  });
 
 export const useTableBills = (outletId: string, tableId: string) =>
   useQuery({

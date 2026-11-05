@@ -1,2 +1,2 @@
 export * from './contracts';
-export * from './signing';
+// signing.ts uses node:crypto, so it is a separate, Node-only entry: '@dinesense/shared/edge-signing'.

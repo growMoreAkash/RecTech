@@ -157,3 +157,47 @@ Demo (dashboard + staff app on a phone):
 Automated: waiter-selection unit tests (fairness over 100 seatings, breaks, limits, fallback, modes), fake-clock
 integration tests of the whole ladder (incl. idempotency and two tables breaching at once), and an e2e test where a
 real 30-second timer assigns the table on the live stack.
+
+## M6 — Vision: edge service, cameras, zone calibration, camera health (done 2026-11-05)
+
+- **Edge service** (`services/vision`, Python 3.11): reads each camera at 3 fps, detects people (YOLOX ONNX,
+  Apache-2.0), estimates seated/standing from the box shape, tracks them, maps them into table zones and debounces:
+  a table is reported _occupied_ after N s of seated guests, _empty_ after M s without them (outlet settings).
+  A standing person at an occupied table for the staff-present time is reported as a staff visit, which counts as
+  the greet only if **Settings → Camera may count a staff visit** is on. Events go through a SQLite outbox
+  (survives outages, replayed in order, exactly-once on the API) as HMAC-signed batches; the device secret is never
+  sent. Health (fps, latency, last frame, reconnects) every 30 s; silent cameras/devices raise alerts.
+- **Privacy**: frames stay in memory. Only calibration snapshots leave the box, with heads/faces pixelated. No face
+  recognition, no video storage. `ds-vision record` (local footage for labelling) warns about consent.
+- **Cameras** page (managers): register the edge box (id + secret shown once, as `.env` lines), add cameras (RTSP URL
+  stored encrypted, never shown again), camera wall with health and the last snapshot with zone overlay, and zone
+  calibration: draw a polygon per table on the snapshot (click points, click the first to close, drag to adjust),
+  or type a rectangle in percent (keyboard path).
+- **Dev mode without cameras**: `ds-vision synth` renders labelled synthetic footage (guests walk in, sit, a waiter
+  visits, they leave, with noise and missed detections); `--detector synthetic` reads it. `ds-vision eval` replays
+  a video through the same pipeline and prints accuracy against labels.
+
+Demo (API + dashboard running; from `services/vision`):
+
+1. `uv sync && uv run ds-vision synth --out samples --seconds 900` → `samples/dining-room.{mp4,labels.csv,zones.json}`.
+2. `uv run ds-vision eval --detector synthetic --video samples/dining-room.mp4 --labels samples/dining-room.labels.csv
+--zones samples/dining-room.zones.json` → per-table table; _accuracy outside debounce windows_ 100 % (target
+   ≥ 95 %), occupy/vacate latency ≈ the configured 30 s / 90 s.
+3. Dashboard → **Settings**: Seated after **10** s, Empty after **30** s, Greet within **0.5** min, camera greet
+   **on** → Save. **Staff & shifts**: check in the waiters.
+4. **Cameras** → _Register edge device_ "Demo mini-PC" → copy the three `DS_*` lines into `services/vision/.env`.
+5. _Add camera_ "Main hall", URL `file:///<repo>/services/vision/samples/dining-room.mp4`, 3 fps.
+6. `uv run ds-vision run --dev --detector synthetic`. Within seconds the camera turns _Healthy_ and a snapshot
+   appears. **Calibrate zones**: draw a zone around each of the four drawn tables (or _Rectangle_) for four real
+   tables → **Save zones** (the box picks them up within 30 s).
+7. Watch **Floor**: a table goes _Vacant_ → _Occupied_ (party size from the camera) → assigned to a waiter at the
+   30 s greet deadline (amber avatar) → _Greeted_ when the synthetic waiter stands at it. Verified live: four tables
+   went Occupied → assigned round-robin (Anil, Farhan, Sunita, Deepa) → Greeted.
+8. Stop the vision process: after ~90 s the camera shows _Offline_ and the Alerts centre has _Camera offline_ /
+   _Edge device offline_; restart it and the camera alert resolves.
+9. Real cameras: `uv run ds-vision fetch-model` (YOLOX-S, Apache-2.0, checksum-verified), set the RTSP URL, run
+   without `--dev`, or `docker compose -f infra/docker-compose.yml --profile edge up -d vision`.
+
+Automated: 38 pytest tests (signing vector shared with TypeScript, JSON-Schema contract checks of every event,
+debounce/zone/tracker/staff rules, outbox + signed sender against a mock API, synthetic end-to-end ≥ 95 %, service
+loop), API integration tests for signatures/replay/dedupe/health, and dashboard zone helper tests.

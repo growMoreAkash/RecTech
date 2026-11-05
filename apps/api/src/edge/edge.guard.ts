@@ -6,7 +6,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { EdgeDevice } from '@prisma/client';
-import { EDGE_CLOCK_SKEW_SECONDS, EDGE_HEADERS, edgeSignature } from '@dinesense/shared';
+import { EDGE_CLOCK_SKEW_SECONDS, EDGE_HEADERS } from '@dinesense/shared';
+import { edgeSignature } from '@dinesense/shared/edge-signing';
 import { timingSafeEqual } from 'node:crypto';
 import { AppError } from '../common/app-error';
 import { PrismaService } from '../prisma/prisma.service';

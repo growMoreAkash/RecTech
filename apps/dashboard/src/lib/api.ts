@@ -73,6 +73,16 @@ export async function logout(): Promise<void> {
   accessToken = null;
 }
 
+/** Binary GET (e.g. camera snapshots) with bearer auth; returns an object URL the caller must revoke. */
+export async function apiObjectUrl(path: string): Promise<string> {
+  const send = () =>
+    fetch(`/api/v1${path}`, { headers: accessToken ? { authorization: `Bearer ${accessToken}` } : {} });
+  let res = await send();
+  if (res.status === 401 && (await refresh())) res = await send();
+  if (!res.ok) throw toError(res, await parse(res).catch(() => undefined));
+  return URL.createObjectURL(await res.blob());
+}
+
 /** JSON API call with bearer auth and one transparent refresh on 401. */
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const send = () =>

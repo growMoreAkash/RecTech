@@ -254,3 +254,47 @@ export interface AuditEntry {
   after: unknown;
   createdAt: string;
 }
+
+export type Point = [number, number];
+
+export interface CameraHealthReport {
+  status: 'ok' | 'degraded' | 'down';
+  fps: number;
+  latencyMs: number;
+  lastFrameAt: string | null;
+  reconnects: number;
+  error?: string;
+}
+
+export interface CameraZone {
+  id: string;
+  tableId: string;
+  polygon: Point[];
+  calibratedAt: string;
+}
+
+export interface Camera {
+  id: string;
+  name: string;
+  edgeDevice: { id: string; name: string; lastSeenAt: string | null };
+  /** Host only (credentials are never returned). */
+  streamHost: string;
+  fps: number;
+  enabled: boolean;
+  healthy: boolean;
+  lastHealthAt: string | null;
+  lastHealth: CameraHealthReport | null;
+  snapshotAt: string | null;
+  hasSnapshot: boolean;
+  zones: CameraZone[];
+}
+
+export interface EdgeDevice {
+  id: string;
+  name: string;
+  version: string | null;
+  lastSeenAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  _count: { cameras: number };
+}

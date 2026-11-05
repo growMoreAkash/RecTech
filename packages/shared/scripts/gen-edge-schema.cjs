@@ -2,7 +2,8 @@
 const { writeFileSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');
 const { zodToJsonSchema } = require('zod-to-json-schema');
-const { edgeEventSchema, edgeBatchSchema, EDGE_SIGNING_VECTOR } = require('../dist/edge');
+const { edgeEventSchema, edgeBatchSchema } = require('../dist/edge');
+const { EDGE_SIGNING_VECTOR } = require('../dist/edge/signing');
 
 const out = join(__dirname, '..', '..', '..', 'services', 'vision', 'dinesense_vision', 'contracts');
 mkdirSync(out, { recursive: true });

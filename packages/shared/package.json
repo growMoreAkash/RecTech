@@ -8,6 +8,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./edge-signing": {
+      "types": "./dist/edge/signing.d.ts",
+      "default": "./dist/edge/signing.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "edge-signing": [
+        "dist/edge/signing.d.ts"
+      ]
     }
   },
   "files": [
@@ -19,7 +30,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "gen:edge-schema": "pnpm build && node scripts/gen-edge-schema.cjs"
+    "gen:edge-schema": "pnpm build && node scripts/gen-edge-schema.cjs && prettier --write ../../services/vision/dinesense_vision/contracts/edge-contracts.json"
   },
   "dependencies": {
     "zod": "3.25.76"

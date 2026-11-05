@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { edgeSignature } from '@dinesense/shared';
+import { edgeSignature } from '@dinesense/shared/edge-signing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EdgeService } from '../src/edge/edge.service';

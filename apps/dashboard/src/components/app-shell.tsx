@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Cctv,
   ChefHat,
   History,
   LayoutGrid,
@@ -49,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       show: can('OWNER', 'MANAGER', 'CASHIER'),
     },
     { href: '/alerts', label: t('nav.alertsCentre'), icon: Siren, show: can('OWNER', 'MANAGER', 'HOST') },
+    { href: '/cameras', label: t('nav.cameras'), icon: Cctv, show: can('OWNER', 'MANAGER') },
     { href: '/audit', label: t('nav.audit'), icon: History, show: can('OWNER', 'MANAGER') },
     { href: '/settings', label: t('nav.settings'), icon: Settings, show: can('OWNER', 'MANAGER') },
   ];

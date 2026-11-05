@@ -8,8 +8,9 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 - **Done:** M0 (tooling), M1 (schema, seed, auth, tenancy, RBAC, audit), M2 (state machine, floor map & editor,
   staff & shifts, Socket.IO, dashboard), M3 (menu, guest QR app, shared cart, order approval, KDS), M4 (staff PWA,
   web push, billing + GST invoice, alerts centre, audit viewer, e2e suite) — **Phase 1 complete** — and M5 (greet SLA
-  engine, round-robin assignment, re-assignment, escalation, settings). Demo scripts: `docs/MILESTONES.md`.
-- **Next milestone:** M6 — vision service (dev-mode videos), edge events API, zone calibration, camera health.
+  engine, round-robin assignment, re-assignment, escalation, settings), M6 (edge vision service, signed edge events,
+  cameras page with zone calibration, camera health, synthetic dev footage + eval). Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M7 (Phase 2 continued, per PLAN §10) — ask before starting.
 
 ## How we work
 
@@ -43,14 +44,17 @@ apps/api            NestJS API (only component that changes table state)
   src/billing       bills (open → finalised → paid), gap-free invoice numbers, payments, signed HTML invoice
   src/tasks         staff task inbox (accept / done)
   src/notifications NotifierService (socket + web push for every new task/alert), PushService (VAPID)
+  src/edge          edge devices (HMAC-signed, secret derived, never stored), cameras (RTSP URL AES-GCM), zones,
+                    snapshots, /edge/config + /edge/events (dedupe via EdgeEventReceipt), health sweep → alerts
   test/             integration tests (*.int.ts) against real Postgres + Redis
 apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /floor/qr, /staff, /menu, /kds/[station],
-                    /bills, /alerts, /audit, /settings
+                    /bills, /alerts, /audit, /cameras, /settings
   src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor/kds helpers
 apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, shared cart, orders, service buttons
 apps/staff          Next.js 15 PWA on :3002 — device setup, PIN pad, tasks, tables (take order/approve/serve), clean, shift, push
 e2e/                Playwright full-service test against the built apps (`pnpm e2e`; wipes/seeds dinesense_e2e)
 packages/ui         shared TSX primitives (Button, Field, Sheet, VegMark, Money); apps transpile the source
+services/vision     Python 3.11 edge service (uv, ruff, mypy --strict, pytest): `ds-vision run|synth|eval|snapshot|record|fetch-model`
 packages/shared     enums (mirror Prisma), table-machine (pure reducer), zod schemas, realtime contracts, money/GST, time
 packages/i18n       en/hi catalogs (key parity enforced by test)
 packages/config     shared tsconfig + eslint flat config
@@ -99,6 +103,12 @@ infra/              docker-compose.yml, Dockerfiles
 - SLA logic is tested with explicit `now` values (fake clock) against the engine; one test waits for a real timer.
 - Waiter selection is pure (`packages/shared/src/assignment`); the API only builds candidates and holds the
   `rr:{outletId}` advisory lock while picking and advancing the cursor.
+- Edge: signing helper is the Node-only entry `@dinesense/shared/edge-signing` (never import node:crypto from the
+  shared root — it breaks browser bundles). After changing edge contracts run `pnpm --filter @dinesense/shared
+gen:edge-schema`; the Python tests validate events against that JSON Schema and the shared signing vector.
+- Vision: the same `CameraPipeline` runs live and in `ds-vision eval`. Only seated people make a table occupied;
+  standing people at an occupied table are staff-present candidates. Frames never leave memory except blurred
+  calibration snapshots. Synthetic footage/detector are dev/eval only; real cameras use YOLOX.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -180,3 +190,10 @@ Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinese
 | 2026-11-05 | M5: assignment mode is per outlet (per-shift override stored but not yet used by the engine)                       | Accepted         |
 | 2026-11-05 | M5: managers' phones buzz only for escalation, no waiter available and left-without-paying; the rest is on screen  | Accepted         |
 | 2026-11-05 | M5: settings ladder validated server-side (escalation after the greet deadline; vacancy ≥ occupancy)               | Accepted         |
+| 2026-11-05 | M6: edge auth = `x-ds-device` + timestamp + HMAC over method/path/body hash; secret = HMAC(EDGE_SECRET_KEY, id)    | Accepted         |
+| 2026-11-05 | M6: detector YOLOX (Apache-2.0, GitHub release ONNX, sha256-pinned); HuggingFace unreachable from build envs       | Flagged to owner |
+| 2026-11-05 | M6: own IoU tracker instead of supervision ByteTrack (removed from supervision 0.26+; tracking needs are simple)   | Accepted         |
+| 2026-11-05 | M6: snapshot privacy = pixelate person head regions + OpenCV Haar faces (bundled), not YuNet (no download needed)  | Accepted         |
+| 2026-11-05 | M6: no real footage available → synthetic labelled footage + synthetic detector for dev/eval; real accuracy TBD    | Flagged to owner |
+| 2026-11-05 | M6: camera workers are threads (ONNX releases the GIL), not processes; one detector instance shared                | Accepted         |
+| 2026-11-05 | M6: occupancy counts seated people only; eval scores accuracy outside the configured debounce windows              | Accepted         |

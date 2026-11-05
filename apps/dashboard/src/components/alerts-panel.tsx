@@ -44,7 +44,7 @@ export function AlertsPanel({
               {a.tableId && labels.get(a.tableId)
                 ? `${t('table', { label: labels.get(a.tableId)! })} · `
                 : ''}
-              {format.relativeTime(new Date(a.createdAt))}
+              {format.relativeTime(new Date(a.createdAt), new Date())}
             </p>
             <div className="mt-2 flex gap-2">
               {a.status === 'OPEN' ? (
