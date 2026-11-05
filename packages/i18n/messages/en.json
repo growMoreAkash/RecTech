@@ -400,5 +400,17 @@
     "print": "Print",
     "alt": "QR code for table {label}",
     "scan": "Scan to see the menu & order"
+  },
+  "push": {
+    "title": "DineSense",
+    "GREET": "Greet table {table} — guests are waiting",
+    "CALL_WAITER": "Table {table} is calling you",
+    "WATER": "Water for table {table}",
+    "CUTLERY": "Cutlery for table {table}",
+    "BILL": "Bill requested at table {table}",
+    "SERVE": "Food ready for table {table}",
+    "CLEAN": "Clean table {table}",
+    "APPROVE_ORDER": "New QR order from table {table} — approve it",
+    "alert": "Alert at table {table}"
   }
 }

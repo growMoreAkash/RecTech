@@ -12,6 +12,7 @@ import type { AuditActor } from '../audit/audit.service';
 import { AppError } from '../common/app-error';
 import { MenuService } from '../menu/menu.service';
 import { OrderingService } from '../ordering/ordering.service';
+import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { TableStateService } from '../table-state/table-state.service';
@@ -28,6 +29,7 @@ export class GuestService {
     private readonly ordering: OrderingService,
     private readonly tables: TableStateService,
     private readonly realtime: RealtimeService,
+    private readonly notifier: NotifierService,
   ) {}
 
   private async tableByToken(qrToken: string) {
@@ -256,18 +258,8 @@ export class GuestService {
           assigneeId: seating.servingWaiterId,
         },
       }));
-    if (!existing) {
-      // No serving waiter yet → every waiter on the outlet sees it (round-robin pick arrives with M5).
-      const to = task.assigneeId ? rooms.staff(task.assigneeId) : rooms.role('WAITER', g.out);
-      this.realtime.emit([to, rooms.role('MANAGER', g.out), rooms.role('HOST', g.out)], 'task.created', {
-        id: task.id,
-        outletId: g.out,
-        type: task.type,
-        status: task.status,
-        tableId: task.tableId,
-        assigneeId: task.assigneeId,
-      });
-    }
+    // No serving waiter yet → on-shift waiters are told (round-robin pick arrives with M5).
+    if (!existing) await this.notifier.taskCreated(task).catch(() => undefined);
     return { ok: true, duplicate: !!existing };
   }
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Inject, Ip, Post, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   type AuthTokens,
@@ -10,6 +10,7 @@ import {
 } from '@dinesense/shared';
 import type { Request, Response } from 'express';
 import { ApiZodBody, ZodPipe } from '../common/zod';
+import { RateLimitService } from '../common/rate-limit.service';
 import { ENV, type Env } from '../config/env';
 import { AuthService } from './auth.service';
 import { Public } from './decorators';
@@ -22,6 +23,7 @@ export const REFRESH_COOKIE = 'ds_refresh';
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly limit: RateLimitService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -41,6 +43,12 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.withCookie(res, await this.auth.pinLogin(deviceToken, body));
+  }
+
+  @Get('device-staff')
+  async deviceStaff(@Headers('x-device-token') deviceToken: string | undefined, @Ip() ip: string) {
+    await this.limit.hit(`device-staff:${ip}`, 30, 60);
+    return this.auth.deviceStaff(deviceToken);
   }
 
   @Post('refresh')

@@ -26,6 +26,10 @@ const envSchema = z.object({
   PIN_LOCKOUT_SECONDS: z.coerce.number().int().min(10).default(900),
   /** Express `trust proxy`: which hops may set X-Forwarded-For (rate limits key on the client IP). */
   TRUST_PROXY: z.string().default('loopback, uniquelocal'),
+  /** Web Push (VAPID). Push is disabled when the keys are absent; sockets still work. */
+  VAPID_PUBLIC_KEY: z.string().min(20).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(20).optional(),
+  VAPID_SUBJECT: z.string().default('mailto:ops@example.com'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

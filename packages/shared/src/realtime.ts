@@ -119,6 +119,7 @@ export interface ServerToClientEvents {
   'menu.availability': (p: MenuAvailabilityPayload) => void;
   'menu.changed': (p: Envelope & { outletId: string }) => void;
   'task.created': (p: TaskPayload) => void;
+  'task.updated': (p: TaskPayload) => void;
   'table.updated': (p: TableUpdatedPayload) => void;
   'alert.created': (p: AlertPayload) => void;
   'alert.updated': (p: AlertPayload) => void;

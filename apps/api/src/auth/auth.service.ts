@@ -73,6 +73,42 @@ export class AuthService {
   }
 
   /**
+   * Names shown on a registered staff terminal's PIN screen: active staff with a PIN at the device's outlet.
+   * Only ids, names and roles — nothing that helps guess a PIN.
+   */
+  async deviceStaff(deviceToken: string | undefined) {
+    const device = deviceToken
+      ? await this.prisma.staffDevice.findUnique({ where: { tokenHash: sha256(deviceToken) } })
+      : null;
+    if (!device || device.revokedAt) {
+      throw new AppError('DEVICE_NOT_REGISTERED', HttpStatus.UNAUTHORIZED, 'This device is not registered');
+    }
+    const users = await this.prisma.user.findMany({
+      where: {
+        organizationId: device.organizationId,
+        active: true,
+        pinHash: { not: null },
+        roles: { some: { outletId: device.outletId } },
+      },
+      select: {
+        id: true,
+        name: true,
+        roles: { where: { outletId: device.outletId }, select: { role: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    const outlet = await this.prisma.outlet.findUniqueOrThrow({
+      where: { id: device.outletId },
+      select: { id: true, name: true },
+    });
+    return {
+      device: { id: device.id, name: device.name, kind: device.kind, station: device.station },
+      outlet,
+      staff: users.map((u) => ({ id: u.id, name: u.name, roles: u.roles.map((r) => r.role) })),
+    };
+  }
+
+  /**
    * Rotating refresh. Presenting an already-rotated token is treated as theft — the whole family is revoked —
    * unless it happens within REFRESH_REUSE_GRACE_SECONDS of the rotation: then the previous response was most likely
    * lost in transit (page navigation, flaky mobile network) and the session simply continues with a fresh pair.

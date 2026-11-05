@@ -1,5 +1,12 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { type OrderItemStatus, type OrderSource, Prisma, type Role, type TaskType } from '@prisma/client';
+import {
+  type OrderItemStatus,
+  type OrderSource,
+  Prisma,
+  type Role,
+  type Task,
+  type TaskType,
+} from '@prisma/client';
 import {
   type AvailabilityWindow,
   CART_LIMITS,
@@ -12,6 +19,7 @@ import {
 } from '@dinesense/shared';
 import { type AuditActor, AuditService } from '../audit/audit.service';
 import { AppError } from '../common/app-error';
+import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { itemInclude, flattenItem } from '../menu/menu.service';
@@ -83,6 +91,7 @@ export class OrderingService {
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     private readonly tables: TableStateService,
+    private readonly notifier: NotifierService,
   ) {}
 
   /** Prices lines against the live menu. Throws ITEM_UNAVAILABLE / INVALID_MODIFIERS with per-line details. */
@@ -143,6 +152,7 @@ export class OrderingService {
       throw new AppError('VALIDATION_FAILED', HttpStatus.BAD_REQUEST, 'Too many items in one order');
     }
 
+    let approvalTask: Task | null = null;
     const order = await this.prisma.$transaction(async (tx) => {
       const seating = await tx.seating.findFirst({
         where: { id: input.seatingId, organizationId: input.organizationId, outletId: input.outletId },
@@ -188,7 +198,7 @@ export class OrderingService {
       });
 
       if (!accepted) {
-        await tx.task.create({
+        approvalTask = await tx.task.create({
           data: {
             organizationId: input.organizationId,
             outletId: input.outletId,
@@ -224,6 +234,7 @@ export class OrderingService {
 
     if (order.status === 'ACCEPTED') await this.afterAccept(order.id, input.audit);
     else this.announce(order);
+    if (approvalTask) await this.notifier.taskCreated(approvalTask).catch(() => undefined);
     return this.getOrder(input.organizationId, order.id);
   }
 
@@ -300,6 +311,7 @@ export class OrderingService {
     }
     if (!allowed.some((r) => roles.includes(r))) throw AppError.forbidden();
 
+    let serveTask: Task | null = null;
     await this.prisma.$transaction(async (tx) => {
       // Guard against a concurrent move (compare-and-set on the current status).
       const ts = ITEM_TS[next];
@@ -313,7 +325,7 @@ export class OrderingService {
       });
       if (res.count !== 1)
         throw new AppError('CONFLICT', HttpStatus.CONFLICT, 'The item was just changed by someone else');
-      if (next === 'READY') await this.ensureServeTask(tx, item.order);
+      if (next === 'READY') serveTask = await this.ensureServeTask(tx, item.order);
       await this.audit.recordAs(
         audit,
         {
@@ -329,6 +341,7 @@ export class OrderingService {
     });
 
     await this.afterItemChange(organizationId, item.orderId, [item.station.code], audit);
+    if (serveTask) await this.notifier.taskCreated(serveTask).catch(() => undefined);
     return this.getOrder(organizationId, item.orderId);
   }
 
@@ -349,12 +362,13 @@ export class OrderingService {
       include: orderInclude,
     });
     if (!order) throw AppError.notFound('Order');
+    let serveTask: Task | null = null;
     await this.prisma.$transaction(async (tx) => {
       const res = await tx.orderItem.updateMany({
         where: { orderId, stationId: station.id, status: { in: ['QUEUED', 'COOKING'] } },
         data: { status: 'READY', readyAt: new Date() },
       });
-      if (res.count) await this.ensureServeTask(tx, order);
+      if (res.count) serveTask = await this.ensureServeTask(tx, order);
       await this.audit.recordAs(
         audit,
         {
@@ -368,6 +382,7 @@ export class OrderingService {
       );
     });
     await this.afterItemChange(organizationId, orderId, [stationCode], audit);
+    if (serveTask) await this.notifier.taskCreated(serveTask).catch(() => undefined);
     return this.getOrder(organizationId, orderId);
   }
 
@@ -468,12 +483,15 @@ export class OrderingService {
     });
   }
 
-  private async ensureServeTask(tx: Tx, order: Prisma.OrderGetPayload<{ include: typeof orderInclude }>) {
+  private async ensureServeTask(
+    tx: Tx,
+    order: Prisma.OrderGetPayload<{ include: typeof orderInclude }>,
+  ): Promise<Task | null> {
     const open = await tx.task.findFirst({
       where: { orderId: order.id, type: 'SERVE', status: { in: ['OPEN', 'ACCEPTED'] } },
     });
-    if (open) return;
-    await tx.task.create({
+    if (open) return null;
+    return tx.task.create({
       data: {
         organizationId: order.organizationId,
         outletId: order.outletId,

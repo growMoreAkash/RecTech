@@ -6,12 +6,17 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { hashSecret, randomToken, sha256 } from '../src/auth/crypto';
 import { configureApp } from '../src/bootstrap';
+import { PUSH_SENDER, type PushSender } from '../src/notifications/push.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 export const PASSWORD = 'correct-horse-battery';
 
-export async function createApp(): Promise<{ app: INestApplication; prisma: PrismaService }> {
-  const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+export async function createApp(
+  opts: { pushSender?: PushSender } = {},
+): Promise<{ app: INestApplication; prisma: PrismaService }> {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  if (opts.pushSender) builder = builder.overrideProvider(PUSH_SENDER).useValue(opts.pushSender);
+  const mod = await builder.compile();
   const app = configureApp(mod.createNestApplication({ logger: false }));
   await app.init();
   return { app, prisma: app.get(PrismaService) };

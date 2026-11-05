@@ -14,6 +14,8 @@ import { FloorModule } from './floor/floor.module';
 import { GuestModule } from './guest/guest.module';
 import { HealthController } from './health/health.controller';
 import { MeController } from './me/me.controller';
+import { NotificationsModule } from './notifications/notifications.module';
+import { TasksModule } from './tasks/tasks.module';
 import { MenuModule } from './menu/menu.module';
 import { OrderingModule } from './ordering/ordering.module';
 import { OutletsModule } from './outlets/outlets.module';
@@ -51,6 +53,8 @@ import { TableStateModule } from './table-state/table-state.module';
     OutletsModule,
     DevicesModule,
     RealtimeModule,
+    NotificationsModule,
+    TasksModule,
     TableStateModule,
     FloorModule,
     StaffModule,

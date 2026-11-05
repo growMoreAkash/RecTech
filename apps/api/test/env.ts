@@ -6,5 +6,9 @@ process.env.REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://localhost:6379/15
 process.env.JWT_ACCESS_SECRET ??= 'test-access-secret-that-is-at-least-32-chars';
 process.env.LOG_LEVEL = 'silent';
 process.env.PIN_MAX_ATTEMPTS = '3';
+// Real-looking VAPID keys so push is "enabled"; tests swap the sender for a spy, nothing leaves the machine.
+process.env.VAPID_PUBLIC_KEY ??=
+  'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+process.env.VAPID_PRIVATE_KEY ??= 'UUxI4O8-FbRouAevSmBQ6o18hgE4nSG3qwvJTfKc-ls';
 
 export {};

@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { type Alert, type EventSource, Prisma, type TaskType } from '@prisma/client';
+import { type Alert, type EventSource, Prisma, type Task, type TaskType } from '@prisma/client';
 import {
   type Actor,
   type Effect,
@@ -14,6 +14,7 @@ import {
 } from '@dinesense/shared';
 import { type AuditActor, AuditService } from '../audit/audit.service';
 import { AppError } from '../common/app-error';
+import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { SLA_SCHEDULER, type SlaScheduler } from './sla-scheduler';
@@ -83,13 +84,21 @@ export class TableStateService {
     private readonly audit: AuditService,
     private readonly views: TableViews,
     private readonly realtime: RealtimeService,
+    private readonly notifier: NotifierService,
     @Inject(SLA_SCHEDULER) private readonly sla: SlaScheduler,
   ) {}
 
   async apply(input: ApplyInput): Promise<ApplyOutput> {
-    const after: { sla: ('start' | 'cancel')[]; seatingId?: string; seatedAt?: Date; alerts: Alert[] } = {
+    const after: {
+      sla: ('start' | 'cancel')[];
+      seatingId?: string;
+      seatedAt?: Date;
+      alerts: Alert[];
+      tasks: Task[];
+    } = {
       sla: [],
       alerts: [],
+      tasks: [],
     };
 
     const out = await this.prisma.$transaction(async (tx) => {
@@ -191,9 +200,11 @@ export class TableStateService {
             after.sla.push('cancel');
             after.seatingId ??= seatingId;
             break;
-          case 'CREATE_TASK':
-            await this.createTask(tx, input, effect.task, table.id, seatingId);
+          case 'CREATE_TASK': {
+            const task = await this.createTask(tx, input, effect.task, table.id, seatingId);
+            if (task) after.tasks.push(task);
             break;
+          }
           case 'CANCEL_TASKS': {
             const fulfilled = FULFILS[input.event.type] ?? [];
             const scope = {
@@ -299,6 +310,11 @@ export class TableStateService {
     const tables = await this.views.load(input.organizationId, input.outletId, out.targetIds);
     if (out.result && !out.result.noop) this.broadcast(input.outletId, tables, after.alerts);
     await this.runTimers(input, after);
+    // Push/socket notifications must never fail a committed transition.
+    await Promise.allSettled([
+      ...after.tasks.map((t) => this.notifier.taskCreated(t)),
+      ...after.alerts.map((a) => this.notifier.alertRaised(a)),
+    ]);
     return { result: out.result, duplicate: out.duplicate, tables };
   }
 
@@ -437,13 +453,19 @@ export class TableStateService {
     }
   }
 
-  private async createTask(tx: Tx, input: ApplyInput, type: TaskType, tableId: string, seatingId?: string) {
+  private async createTask(
+    tx: Tx,
+    input: ApplyInput,
+    type: TaskType,
+    tableId: string,
+    seatingId?: string,
+  ): Promise<Task | null> {
     const existing = await tx.task.findFirst({
       where: { outletId: input.outletId, tableId, type, status: { in: ['OPEN', 'ACCEPTED'] } },
     });
-    if (existing) return;
+    if (existing) return null;
     const seating = seatingId ? await tx.seating.findUnique({ where: { id: seatingId } }) : null;
-    await tx.task.create({
+    return tx.task.create({
       data: {
         organizationId: input.organizationId,
         outletId: input.outletId,
