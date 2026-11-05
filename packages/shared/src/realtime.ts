@@ -103,8 +103,16 @@ export interface TaskPayload extends Envelope {
   assigneeId: string | null;
 }
 
+export interface BillUpdatedPayload extends Envelope {
+  outletId: string;
+  billId: string;
+  seatingId: string;
+  status: string;
+}
+
 /** Server → client events and their payloads. */
 export interface ServerToClientEvents {
+  'bill.updated': (p: BillUpdatedPayload) => void;
   'cart.updated': (p: CartUpdatedPayload) => void;
   'order.updated': (p: OrderUpdatedPayload) => void;
   'kds.changed': (p: KdsChangedPayload) => void;

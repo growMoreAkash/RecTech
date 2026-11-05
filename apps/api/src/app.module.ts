@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { AlertsModule } from './alerts/alerts.module';
 import { AuditModule } from './audit/audit.module';
+import { BillingModule } from './billing/billing.module';
 import { AuthModule } from './auth/auth.module';
 import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
@@ -57,6 +58,7 @@ import { TableStateModule } from './table-state/table-state.module';
     MenuModule,
     OrderingModule,
     GuestModule,
+    BillingModule,
   ],
   controllers: [HealthController, MeController],
   providers: [{ provide: APP_FILTER, useClass: ErrorFilter }],

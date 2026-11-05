@@ -167,3 +167,33 @@ export const guestActionSchema = z.object({ type: z.enum(GUEST_ACTIONS) }).stric
 
 /** Guard rails against prank orders. */
 export const CART_LIMITS = { maxLines: 40, maxQuantityPerLine: 50, maxItemsPerOrder: 100 } as const;
+
+// ── Billing ──
+
+export const billAdjustSchema = z
+  .object({
+    /** Absolute discount in paise (applied before tax). */
+    discountPaise: z.number().int().min(0).max(100_000_000).optional(),
+    discountReason: z.string().trim().min(1).max(140).nullable().optional(),
+    /** Service charge for this bill (defaults to the outlet setting). Max 25%. */
+    serviceChargeBps: z.number().int().min(0).max(2500).optional(),
+  })
+  .strict()
+  .refine((b) => !b.discountPaise || !!b.discountReason, {
+    message: 'A discount needs a reason',
+    path: ['discountReason'],
+  });
+export type BillAdjustInput = z.infer<typeof billAdjustSchema>;
+
+export const MANUAL_PAYMENT_METHODS = ['CASH', 'UPI', 'CARD', 'OTHER'] as const;
+export const paymentSchema = z
+  .object({
+    method: z.enum(MANUAL_PAYMENT_METHODS),
+    amountPaise: z.number().int().min(1).max(100_000_000),
+    /** UPI reference / card last 4 / note. */
+    reference: z.string().trim().max(60).optional(),
+  })
+  .strict();
+export type PaymentInput = z.infer<typeof paymentSchema>;
+
+export const voidBillSchema = z.object({ reason: z.string().trim().min(1).max(140) }).strict();

@@ -879,9 +879,19 @@ model Bill {
   sgstPaise          Int        @default(0)
   roundOffPaise      Int        @default(0)
   totalPaise         Int        @default(0)
+  /// Service charge rate applied to this bill (outlet default unless changed).
+  serviceChargeBps   Int        @default(0)
+  /// Discounted items + service charge.
+  taxablePaise       Int        @default(0)
+  /// GST summary by rate, snapshotted for the invoice: [{ taxRateBps, taxablePaise, cgstPaise, sgstPaise }].
+  taxBreakup         Json       @default("[]")
   createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @default(now()) @updatedAt
   finalizedAt        DateTime?
   finalizedById      String?
+  paidAt             DateTime?
+  voidedAt           DateTime?
+  voidReason         String?
 
   outlet   Outlet     @relation(fields: [outletId], references: [id])
   seating  Seating    @relation(fields: [seatingId], references: [id])
@@ -893,19 +903,29 @@ model Bill {
 }
 
 model BillLine {
-  id                String  @id @default(cuid())
-  billId            String
-  orderItemId       String?
-  description       String
-  hsnSac            String?
-  quantity          Int
-  unitPricePaise    Int
-  taxableValuePaise Int
-  taxRateBps        Int
-  cgstPaise         Int
-  sgstPaise         Int
+  id                     String  @id @default(cuid())
+  billId                 String
+  orderItemId            String?
+  description            String
+  hsnSac                 String?
+  quantity               Int
+  unitPricePaise         Int
+  /// Share of the bill discount.
+  discountPaise          Int     @default(0)
+  /// Item value after discount.
+  taxableValuePaise      Int
+  taxRateBps             Int
+  cgstPaise              Int
+  sgstPaise              Int
+  /// This line's share of the service charge and its GST.
+  serviceChargePaise     Int     @default(0)
+  serviceChargeCgstPaise Int     @default(0)
+  serviceChargeSgstPaise Int     @default(0)
+  sortOrder              Int     @default(0)
 
   bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
 }
 
 /// Gap-free invoice numbering per outlet per financial year.
