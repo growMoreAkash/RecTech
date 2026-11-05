@@ -3,7 +3,12 @@ import { Prisma } from '@prisma/client';
 import {
   type BillAdjustInput,
   BillError,
+  type BillSplitInput,
   computeBill,
+  computeSplit,
+  shareStatus,
+  SplitError,
+  type SplitPlan,
   financialYear,
   localized,
   type PaymentInput,
@@ -24,6 +29,9 @@ export const billInclude = {
   payments: { orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.BillInclude;
 type BillRow = Prisma.BillGetPayload<{ include: typeof billInclude }>;
+
+/** An online checkout younger than this blocks re-splitting (the guest may still complete it). */
+export const PENDING_PAYMENT_WINDOW_MS = 15 * 60_000;
 
 /**
  * Bills for a seating. Rules:
@@ -186,7 +194,7 @@ export class BillingService {
           status: 'FINALIZED',
           invoiceNumber,
           finalizedAt: new Date(),
-          finalizedById: audit.id ?? null,
+          finalizedById: audit.type === 'USER' ? (audit.id ?? null) : null,
         },
         include: billInclude,
       });
@@ -234,6 +242,14 @@ export class BillingService {
           duePaise: due,
         });
       }
+      if (input.shareKey) {
+        const share = this.shares(b).find((x) => x.key === input.shareKey);
+        if (!share) throw new AppError('SPLIT_INVALID', HttpStatus.BAD_REQUEST, 'No such share on this bill');
+        if (input.amountPaise > share.duePaise)
+          throw new AppError('OVERPAYMENT', HttpStatus.CONFLICT, 'Amount is more than this share', {
+            duePaise: share.duePaise,
+          });
+      }
       const now = new Date();
       await tx.payment.create({
         data: {
@@ -244,7 +260,8 @@ export class BillingService {
           status: 'CAPTURED',
           amountPaise: input.amountPaise,
           reference: input.reference ?? null,
-          receivedById: audit.id ?? null,
+          shareKey: input.shareKey ?? null,
+          receivedById: audit.type === 'USER' ? (audit.id ?? null) : null,
           capturedAt: now,
         },
       });
@@ -261,7 +278,7 @@ export class BillingService {
           entityType: 'Bill',
           entityId: billId,
           outletId,
-          after: { method: input.method, amountPaise: input.amountPaise, settled },
+          after: { method: input.method, amountPaise: input.amountPaise, shareKey: input.shareKey, settled },
         },
         tx,
       );
@@ -270,6 +287,248 @@ export class BillingService {
 
     if (bill.status === 'PAID')
       await this.maybeMarkTablePaid(organizationId, outletId, bill.seatingId, audit);
+    this.announce(outletId, bill);
+    return this.view(bill);
+  }
+
+  // ───────── online payments (provider calls happen outside these transactions) ─────────
+
+  /**
+   * Reserves an online payment for a bill (or one split share): finalises an open bill, works out the amount
+   * due and returns a PENDING payment — reusing a recent pending one for the same amount so double taps and two
+   * phones paying the same share share one provider order.
+   */
+  async reserveOnline(
+    g: { org: string; out: string; seat: string },
+    billId: string,
+    shareKey: string | undefined,
+    provider: string,
+    audit: AuditActor,
+  ) {
+    const current = await this.prisma.bill.findFirst({
+      where: { id: billId, organizationId: g.org, outletId: g.out, seatingId: g.seat },
+    });
+    if (!current) throw AppError.notFound('Bill');
+    if (current.status === 'OPEN') await this.finalize(g.org, g.out, billId, audit);
+
+    return this.prisma.$transaction(async (tx) => {
+      const b = await this.lockBill(tx, g.org, g.out, billId);
+      if (b.status !== 'FINALIZED')
+        throw new AppError('BILL_NOT_EDITABLE', HttpStatus.CONFLICT, 'Nothing is due on this bill');
+      const paid = b.payments.filter((p) => p.status === 'CAPTURED').reduce((s, p) => s + p.amountPaise, 0);
+      let amount = b.totalPaise - paid;
+      if (shareKey) {
+        const share = this.shares(b).find((x) => x.key === shareKey);
+        if (!share) throw new AppError('SPLIT_INVALID', HttpStatus.BAD_REQUEST, 'No such share on this bill');
+        amount = Math.min(amount, share.duePaise);
+      }
+      if (amount <= 0) throw new AppError('BILL_NOT_EDITABLE', HttpStatus.CONFLICT, 'Nothing is due');
+      const now = Date.now();
+      const reusable = b.payments.find(
+        (p) =>
+          p.status === 'PENDING' &&
+          p.provider === provider &&
+          p.providerOrderId &&
+          p.amountPaise === amount &&
+          (p.shareKey ?? undefined) === shareKey &&
+          now - p.createdAt.getTime() < PENDING_PAYMENT_WINDOW_MS,
+      );
+      if (reusable) return { payment: reusable, bill: b, reused: true };
+      const payment = await tx.payment.create({
+        data: {
+          organizationId: g.org,
+          outletId: g.out,
+          billId,
+          method: 'RAZORPAY',
+          status: 'PENDING',
+          amountPaise: amount,
+          shareKey: shareKey ?? null,
+          provider,
+        },
+      });
+      return { payment, bill: b, reused: false };
+    });
+  }
+
+  async attachProviderOrder(paymentId: string, providerOrderId: string) {
+    await this.prisma.payment.update({ where: { id: paymentId }, data: { providerOrderId } });
+  }
+
+  async failOnline(by: { paymentId?: string; providerOrderId?: string }, reason: string) {
+    const p = await this.prisma.payment.findFirst({
+      where: by.paymentId ? { id: by.paymentId } : { providerOrderId: by.providerOrderId ?? '-' },
+    });
+    if (!p || p.status !== 'PENDING') return;
+    await this.prisma.payment.update({
+      where: { id: p.id },
+      data: { status: 'FAILED', failureReason: reason.slice(0, 200) },
+    });
+  }
+
+  /**
+   * Marks an online payment captured (idempotent: browser callback and webhook may both arrive). Money that
+   * arrives for an already-settled bill is still recorded — it was taken — and flagged in the audit log for a
+   * refund from the provider dashboard.
+   */
+  async captureOnline(providerOrderId: string, providerPaymentId: string, amountPaise?: number) {
+    const found = await this.prisma.payment.findUnique({ where: { providerOrderId } });
+    if (!found) return null;
+    const audit: AuditActor = { organizationId: found.organizationId, type: 'SYSTEM' };
+    const result = await this.prisma.$transaction(async (tx) => {
+      const b = await this.lockBill(tx, found.organizationId, found.outletId, found.billId);
+      const p = b.payments.find((x) => x.id === found.id)!;
+      if (p.status === 'CAPTURED') return null;
+      const amount = amountPaise ?? p.amountPaise;
+      if (amount !== p.amountPaise)
+        this.logger.warn(`online payment ${providerPaymentId}: amount ${amount} ≠ expected ${p.amountPaise}`);
+      const now = new Date();
+      await tx.payment.update({
+        where: { id: p.id },
+        data: {
+          status: 'CAPTURED',
+          amountPaise: amount,
+          providerPaymentId,
+          reference: providerPaymentId,
+          capturedAt: now,
+          failureReason: null,
+        },
+      });
+      const paid =
+        b.payments.filter((x) => x.status === 'CAPTURED').reduce((s, x) => s + x.amountPaise, 0) + amount;
+      const extra = b.status !== 'FINALIZED' || paid > b.totalPaise;
+      const settle = b.status === 'FINALIZED' && paid >= b.totalPaise;
+      const after = await tx.bill.update({
+        where: { id: b.id },
+        data: settle ? { status: 'PAID', paidAt: now } : {},
+        include: billInclude,
+      });
+      await this.audit.recordAs(
+        audit,
+        {
+          action: extra ? 'bill.payment.excess' : 'bill.payment',
+          entityType: 'Bill',
+          entityId: b.id,
+          outletId: b.outletId,
+          after: {
+            method: 'RAZORPAY',
+            amountPaise: amount,
+            shareKey: p.shareKey,
+            providerPaymentId,
+            settled: settle,
+          },
+        },
+        tx,
+      );
+      if (extra)
+        this.logger.warn(
+          `bill ${b.id}: online payment ${providerPaymentId} exceeds what was due — refund it`,
+        );
+      return after;
+    });
+    if (!result) return null;
+    if (result.status === 'PAID')
+      await this.maybeMarkTablePaid(result.organizationId, result.outletId, result.seatingId, audit);
+    this.announce(result.outletId, result);
+    return this.view(result);
+  }
+
+  /** Bills of the guest's seating as the guest sees them (no staff ids). */
+  async guestBills(g: { org: string; out: string; seat: string }) {
+    const bills = await this.prisma.bill.findMany({
+      where: { organizationId: g.org, outletId: g.out, seatingId: g.seat, status: { not: 'VOID' } },
+      include: billInclude,
+      orderBy: { createdAt: 'asc' },
+    });
+    return bills.map((b) => {
+      const v = this.view(b);
+      return {
+        id: v.id,
+        status: v.status,
+        invoiceNumber: v.invoiceNumber,
+        totalPaise: v.totalPaise,
+        paidPaise: v.paidPaise,
+        duePaise: v.duePaise,
+        invoiceUrl: v.status === 'OPEN' ? null : v.invoiceUrl,
+        split: v.split,
+        lines: v.lines.map((l) => ({ id: l.id, description: l.description, quantity: l.quantity })),
+        checkoutInProgress: v.payments.some((p) => p.status === 'PENDING' && p.provider),
+      };
+    });
+  }
+
+  /** Splits the (finalised) bill into shares paid separately. Only before any money has been taken. */
+  async split(
+    organizationId: string,
+    outletId: string,
+    billId: string,
+    input: BillSplitInput | null,
+    audit: AuditActor,
+  ) {
+    const current = await this.prisma.bill.findFirst({
+      where: { id: billId, organizationId, outletId },
+      include: { lines: { select: { id: true, orderItemId: true } } },
+    });
+    if (!current) throw AppError.notFound('Bill');
+    if (current.status === 'OPEN' && input) {
+      await this.finalize(organizationId, outletId, billId, audit);
+      // Finalising re-prices and re-creates the lines: carry by-item picks over via their order item.
+      if (input.mode === 'BY_ITEM') {
+        const fresh = await this.prisma.billLine.findMany({
+          where: { billId },
+          select: { id: true, orderItemId: true },
+        });
+        const byItem = new Map(fresh.map((l) => [l.orderItemId, l.id]));
+        const remap = new Map(current.lines.map((l) => [l.id, byItem.get(l.orderItemId) ?? l.id]));
+        input = {
+          ...input,
+          shares: input.shares.map((sh) => ({ ...sh, lineIds: sh.lineIds.map((id) => remap.get(id) ?? id) })),
+        };
+      }
+    }
+
+    const bill = await this.prisma.$transaction(async (tx) => {
+      const b = await this.lockBill(tx, organizationId, outletId, billId);
+      if (b.status !== 'FINALIZED')
+        throw new AppError(
+          'BILL_NOT_EDITABLE',
+          HttpStatus.CONFLICT,
+          `A ${b.status.toLowerCase()} bill cannot be split`,
+        );
+      if (b.payments.some((p) => p.status === 'CAPTURED'))
+        throw new AppError(
+          'BILL_NOT_EDITABLE',
+          HttpStatus.CONFLICT,
+          'Payments were already taken on this bill',
+        );
+      this.assertNoCheckoutInProgress(b);
+      let plan: SplitPlan | null = null;
+      if (input) {
+        try {
+          plan = computeSplit(input, { totalPaise: b.totalPaise, lines: b.lines });
+        } catch (e) {
+          if (e instanceof SplitError) throw new AppError('SPLIT_INVALID', HttpStatus.BAD_REQUEST, e.message);
+          throw e;
+        }
+      }
+      const after = await tx.bill.update({
+        where: { id: billId },
+        data: { splitPlan: plan ? (plan as unknown as Prisma.InputJsonValue) : Prisma.DbNull },
+        include: billInclude,
+      });
+      await this.audit.recordAs(
+        audit,
+        {
+          action: plan ? 'bill.split' : 'bill.split.clear',
+          entityType: 'Bill',
+          entityId: billId,
+          outletId,
+          before: b.splitPlan ? { split: b.splitPlan } : undefined,
+          after: plan ? { split: plan } : undefined,
+        },
+        tx,
+      );
+      return after;
+    });
     this.announce(outletId, bill);
     return this.view(bill);
   }
@@ -349,12 +608,36 @@ export class BillingService {
 
   // ───────── internals ─────────
 
-  private view(b: BillRow) {
+  /** Throws while a guest checkout started recently could still complete. */
+  assertNoCheckoutInProgress(b: {
+    payments: { status: string; provider: string | null; createdAt: Date }[];
+  }) {
+    const now = Date.now();
+    if (
+      b.payments.some(
+        (p) =>
+          p.status === 'PENDING' && p.provider && now - p.createdAt.getTime() < PENDING_PAYMENT_WINDOW_MS,
+      )
+    )
+      throw new AppError('PAYMENT_IN_PROGRESS', HttpStatus.CONFLICT, 'An online payment is in progress');
+  }
+
+  /** Split shares with paid/due (empty when the bill is not split). */
+  shares(b: {
+    splitPlan: Prisma.JsonValue;
+    payments: { shareKey: string | null; amountPaise: number; status: string }[];
+  }) {
+    return b.splitPlan ? shareStatus(b.splitPlan as unknown as SplitPlan, b.payments) : [];
+  }
+
+  view(b: BillRow) {
     const paidPaise = b.payments
       .filter((p) => p.status === 'CAPTURED')
       .reduce((s, p) => s + p.amountPaise, 0);
+    const { splitPlan, ...rest } = b;
     return {
-      ...b,
+      ...rest,
+      split: splitPlan ? { mode: (splitPlan as unknown as SplitPlan).mode, shares: this.shares(b) } : null,
       paidPaise,
       duePaise: b.status === 'VOID' ? 0 : Math.max(0, b.totalPaise - paidPaise),
       invoiceUrl: this.invoicePath(b.id),

@@ -1,6 +1,7 @@
 'use client';
 
 import { localized } from '@dinesense/shared';
+import { Button } from '@dinesense/ui/button';
 import { Sheet } from '@dinesense/ui/sheet';
 import { useLocale, useTranslations } from 'next-intl';
 import { Totals } from './totals';
@@ -27,10 +28,14 @@ export function OrdersSheet({
   open,
   onOpenChange,
   orders,
+  canPay = false,
+  onPay,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   orders: Orders | undefined;
+  canPay?: boolean;
+  onPay?: () => void;
 }) {
   const t = useTranslations('guest');
   const locale = useLocale();
@@ -67,6 +72,11 @@ export function OrdersSheet({
           <p className="font-medium">{t('runningBill')}</p>
           <Totals totals={orders.bill} />
           <p className="text-xs text-slate-500">{t('billNote')}</p>
+          {canPay && onPay ? (
+            <Button size="lg" className="w-full" onClick={onPay}>
+              {t('pay.cta')}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </Sheet>

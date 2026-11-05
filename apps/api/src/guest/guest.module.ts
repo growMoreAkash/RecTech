@@ -12,6 +12,6 @@ import { GuestTokens } from './guest-token';
   imports: [MenuModule, OrderingModule, TableStateModule],
   controllers: [GuestController],
   providers: [GuestService, GuestGuard, GuestTokens, RateLimitService],
-  exports: [GuestTokens],
+  exports: [GuestTokens, GuestGuard],
 })
 export class GuestModule {}

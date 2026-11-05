@@ -9,8 +9,10 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
   staff & shifts, Socket.IO, dashboard), M3 (menu, guest QR app, shared cart, order approval, KDS), M4 (staff PWA,
   web push, billing + GST invoice, alerts centre, audit viewer, e2e suite) — **Phase 1 complete** — and M5 (greet SLA
   engine, round-robin assignment, re-assignment, escalation, settings), M6 (edge vision service, signed edge events,
-  cameras page with zone calibration, camera health, synthetic dev footage + eval). Demo scripts: `docs/MILESTONES.md`.
-- **Next milestone:** M7 (Phase 2 continued, per PLAN §10) — ask before starting.
+  cameras page with zone calibration, camera health, synthetic dev footage + eval), M7 (split bills, Razorpay
+  pay-at-table in test mode, departure/cleaning, reports) — **Phase 2 complete**. Demo scripts: `docs/MILESTONES.md`.
+- **Next:** Phase 3 is out of scope until the owner approves it (PLAN §11 extension points only). Open items: real
+  footage for vision accuracy; Razorpay test keys + webhook URL for a sandbox run; go-live needs owner approval.
 
 ## How we work
 
@@ -41,14 +43,18 @@ apps/api            NestJS API (only component that changes table state)
   src/menu          stations, categories, items, modifier groups, availability (guest menu filtering)
   src/ordering      OrderingService (pricing, QR/waiter orders, approval, KDS flow) + orders/KDS endpoints
   src/guest         public QR endpoints (/g/*), guest JWT, GuestGuard, rate limits
-  src/billing       bills (open → finalised → paid), gap-free invoice numbers, payments, signed HTML invoice
+  src/billing       bills (open → finalised → paid), gap-free invoice numbers, split shares, payments, signed HTML
+                    invoice; online payments (reserve → provider order → capture) live here too
+  src/payments      PaymentProvider interface + RazorpayProvider, guest pay endpoints (/g/bills, /g/payments*),
+                    signed provider webhook (/payments/razorpay/webhook)
+  src/reports       day report (managers): seatings, greet times, per-waiter SLA, sales by hour, payments
   src/tasks         staff task inbox (accept / done)
   src/notifications NotifierService (socket + web push for every new task/alert), PushService (VAPID)
   src/edge          edge devices (HMAC-signed, secret derived, never stored), cameras (RTSP URL AES-GCM), zones,
                     snapshots, /edge/config + /edge/events (dedupe via EdgeEventReceipt), health sweep → alerts
   test/             integration tests (*.int.ts) against real Postgres + Redis
 apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /floor/qr, /staff, /menu, /kds/[station],
-                    /bills, /alerts, /audit, /cameras, /settings
+                    /bills, /alerts, /audit, /reports, /cameras, /settings
   src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor/kds helpers
 apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, shared cart, orders, service buttons
 apps/staff          Next.js 15 PWA on :3002 — device setup, PIN pad, tasks, tables (take order/approve/serve), clean, shift, push
@@ -109,6 +115,10 @@ gen:edge-schema`; the Python tests validate events against that JSON Schema and 
 - Vision: the same `CameraPipeline` runs live and in `ds-vision eval`. Only seated people make a table occupied;
   standing people at an occupied table are staff-present candidates. Frames never leave memory except blurred
   calibration snapshots. Synthetic footage/detector are dev/eval only; real cameras use YOLOX.
+- Payments: amounts due are always computed by `BillingService` (never by the provider or the browser). Online
+  capture is idempotent by provider order id; browser callback and webhook may both arrive. Webhooks are verified
+  over the raw body. A split share is `Payment.shareKey`; shares come from the pure `computeSplit` (sums exactly).
+  Money is never refused once taken: excess is recorded and audited as `bill.payment.excess` for a manual refund.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -136,64 +146,70 @@ Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinese
 
 ## Decisions log
 
-| Date       | Decision                                                                                                           | Status           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| 2026-11-05 | Stack as in brief (pnpm/Turborepo, NestJS/Prisma/Postgres, Redis/BullMQ, Socket.IO, Next.js, Python vision)        | Accepted (brief) |
-| 2026-11-05 | D1 Apache-2.0 detector (RT-DETR/D-FINE or YOLOX), not Ultralytics AGPL                                             | Accepted         |
-| 2026-11-05 | D2 Aspect-ratio posture first, RTMPose behind flag                                                                 | Accepted         |
-| 2026-11-05 | D3 HTTPS + HMAC + SQLite outbox for edge events; MQTT deferred                                                     | Accepted         |
-| 2026-11-05 | D4 VAPID Web Push first; FCM with Expo app later                                                                   | Accepted         |
-| 2026-11-05 | D5 Own auth: password for managers, device-bound PIN for floor staff                                               | Accepted         |
-| 2026-11-05 | D6 `SeatingTable` join model for joined tables                                                                     | Accepted         |
-| 2026-11-05 | D7 Paise + basis points for money/tax                                                                              | Accepted         |
-| 2026-11-05 | D8 Node 22, NestJS 11, Prisma 6, Next 15, React 19, Tailwind 4, Vitest (zod 3.25)                                  | Accepted         |
-| 2026-11-05 | D9 next-intl, shared catalogs in `packages/i18n`                                                                   | Accepted         |
-| 2026-11-05 | D10 KDS as a route group inside `apps/dashboard`                                                                   | Accepted         |
-| 2026-11-05 | State machine reducer moved from M5 into M2; added M0 for tooling                                                  | Accepted         |
-| 2026-11-05 | M1: integration tests use a real Postgres/Redis from env (CI service containers) instead of testcontainers         | Accepted         |
-| 2026-11-05 | M1: tests are non-destructive (`migrate deploy`, per-test tenants); no `migrate reset` in tooling                  | Accepted         |
-| 2026-11-05 | M1: `organizationId` added to `OrderItem` and `GuestSession` so KDS/guest queries are tenant-scoped                | Accepted         |
-| 2026-11-05 | M1: audit via explicit `AuditService.record()` in the same transaction (not an interceptor) — real before/after    | Accepted         |
-| 2026-11-05 | M1: refresh tokens are opaque, hashed, rotated; reuse of a rotated token revokes the whole family                  | Accepted         |
-| 2026-11-05 | M1: PIN login locked per user after `PIN_MAX_ATTEMPTS` failures (Redis counter, `PIN_LOCKOUT_SECONDS`)             | Accepted         |
-| 2026-11-05 | M1: modules are CommonJS (Nest-friendly); `packages/*` build to `dist/` and turbo builds deps first                | Accepted         |
-| 2026-11-05 | M2: table rows locked `FOR UPDATE` per transition; client `expectedVersion` → 409 `VERSION_CONFLICT`               | Accepted         |
-| 2026-11-05 | M2: camera vacancy never auto-closes an unpaid table; with an order it raises LEFT_WITHOUT_PAYING                  | Accepted         |
-| 2026-11-05 | M2: a waiter-taken order counts as greet; QR orders only if `qrOrderSatisfiesGreet`                                | Accepted         |
-| 2026-11-05 | M2: events that fulfil a task mark it DONE (greet, clean, pay); departures CANCEL the rest                         | Accepted         |
-| 2026-11-05 | M2: the greeting waiter becomes the serving waiter unless one is already assigned                                  | Accepted         |
-| 2026-11-05 | M2: only OWNER may grant OWNER/MANAGER; role changes and deactivation revoke sessions                              | Accepted         |
-| 2026-11-05 | M2: shared UI primitives live in the dashboard for now; extract `packages/ui` when guest/staff apps arrive (M3)    | Accepted         |
-| 2026-11-05 | M2: Next standalone output; `API_URL` / `NEXT_PUBLIC_API_URL` are build-time values                                | Accepted         |
-| 2026-11-05 | M3: guest JWT (issuer `dinesense-guest`) per device per seating; stored per QR in localStorage                     | Accepted         |
-| 2026-11-05 | M3: QR orders → PENDING_APPROVAL (APPROVE_ORDER task); waiter orders → kitchen and count as greet                  | Accepted         |
-| 2026-11-05 | M3: order lines snapshot name, price incl. modifiers, tax rate; daily ticket numbers under an advisory lock        | Accepted         |
-| 2026-11-05 | M3: item flow QUEUED→COOKING→READY (chef) →SERVED (floor), VOID by managers; READY creates a SERVE task            | Accepted         |
-| 2026-11-05 | M3: running bill = per-line GST on accepted, non-void items; service charge/discounts/round-off come in M4         | Accepted         |
-| 2026-11-05 | M3: refresh-token reuse within `REFRESH_REUSE_GRACE_SECONDS` (20 s) continues the session (lost response)          | Accepted         |
-| 2026-11-05 | M3: Express `trust proxy` (`TRUST_PROXY`) so guest rate limits key on the real client IP behind Next               | Accepted         |
-| 2026-11-05 | M3: `packages/ui` extracted (TSX source, `transpilePackages`); Tailwind `@source` scans it                         | Accepted         |
-| 2026-11-05 | M3: chef has a dashboard login (KDS); device-bound KDS screens with PIN come with the staff app in M4              | Accepted         |
-| 2026-11-05 | M4: one OPEN bill per seating holds all unbilled items; later orders go to a new bill; void keeps the number       | Accepted         |
-| 2026-11-05 | M4: discount (with reason) allocated pro rata before tax; service charge taxed at each line's rate                 | Accepted         |
-| 2026-11-05 | M4: GST rounded per rate total (not per line) so printed rate × base = tax; lines get exact shares                 | Accepted         |
-| 2026-11-05 | M4: payments ≤ amount due (no overpayment/change tracking); table → PAID when every live bill is paid              | Accepted         |
-| 2026-11-05 | M4: invoice is a signed, non-expiring HTML link (HMAC of bill id); English only as the legal document              | Accepted         |
-| 2026-11-05 | M4: web push via `web-push` (MPL-2.0, unmodified dependency); disabled when VAPID keys are absent                  | Accepted         |
-| 2026-11-05 | M4: unassigned tasks push to checked-in, on-shift, not-on-break staff whose role handles the task type             | Accepted         |
-| 2026-11-05 | M4: staff terminals are registered once by a manager; PIN screen lists names only; push follows the signed-in user | Accepted         |
-| 2026-11-05 | M4: e2e runs built standalone apps on normal ports against `dinesense_e2e` (name must contain "e2e")               | Accepted         |
-| 2026-11-05 | M5: one `evaluate` job type with deterministic ids per deadline instead of three job families; cancel = no-op      | Accepted         |
-| 2026-11-05 | M5: waiters with no sections cover every section; outlet-wide fallback uses its own cursor (`*`)                   | Accepted         |
-| 2026-11-05 | M5: tried waiters are skipped on re-assignment until everyone has been tried, then the rotation starts again       | Accepted         |
-| 2026-11-05 | M5: acknowledging (On my way / accepting the GREET task) stops re-assignment; only a greet stops escalation        | Accepted         |
-| 2026-11-05 | M5: assignment mode is per outlet (per-shift override stored but not yet used by the engine)                       | Accepted         |
-| 2026-11-05 | M5: managers' phones buzz only for escalation, no waiter available and left-without-paying; the rest is on screen  | Accepted         |
-| 2026-11-05 | M5: settings ladder validated server-side (escalation after the greet deadline; vacancy ≥ occupancy)               | Accepted         |
-| 2026-11-05 | M6: edge auth = `x-ds-device` + timestamp + HMAC over method/path/body hash; secret = HMAC(EDGE_SECRET_KEY, id)    | Accepted         |
-| 2026-11-05 | M6: detector YOLOX (Apache-2.0, GitHub release ONNX, sha256-pinned); HuggingFace unreachable from build envs       | Flagged to owner |
-| 2026-11-05 | M6: own IoU tracker instead of supervision ByteTrack (removed from supervision 0.26+; tracking needs are simple)   | Accepted         |
-| 2026-11-05 | M6: snapshot privacy = pixelate person head regions + OpenCV Haar faces (bundled), not YuNet (no download needed)  | Accepted         |
-| 2026-11-05 | M6: no real footage available → synthetic labelled footage + synthetic detector for dev/eval; real accuracy TBD    | Flagged to owner |
-| 2026-11-05 | M6: camera workers are threads (ONNX releases the GIL), not processes; one detector instance shared                | Accepted         |
-| 2026-11-05 | M6: occupancy counts seated people only; eval scores accuracy outside the configured debounce windows              | Accepted         |
+| Date       | Decision                                                                                                             | Status           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 2026-11-05 | Stack as in brief (pnpm/Turborepo, NestJS/Prisma/Postgres, Redis/BullMQ, Socket.IO, Next.js, Python vision)          | Accepted (brief) |
+| 2026-11-05 | D1 Apache-2.0 detector (RT-DETR/D-FINE or YOLOX), not Ultralytics AGPL                                               | Accepted         |
+| 2026-11-05 | D2 Aspect-ratio posture first, RTMPose behind flag                                                                   | Accepted         |
+| 2026-11-05 | D3 HTTPS + HMAC + SQLite outbox for edge events; MQTT deferred                                                       | Accepted         |
+| 2026-11-05 | D4 VAPID Web Push first; FCM with Expo app later                                                                     | Accepted         |
+| 2026-11-05 | D5 Own auth: password for managers, device-bound PIN for floor staff                                                 | Accepted         |
+| 2026-11-05 | D6 `SeatingTable` join model for joined tables                                                                       | Accepted         |
+| 2026-11-05 | D7 Paise + basis points for money/tax                                                                                | Accepted         |
+| 2026-11-05 | D8 Node 22, NestJS 11, Prisma 6, Next 15, React 19, Tailwind 4, Vitest (zod 3.25)                                    | Accepted         |
+| 2026-11-05 | D9 next-intl, shared catalogs in `packages/i18n`                                                                     | Accepted         |
+| 2026-11-05 | D10 KDS as a route group inside `apps/dashboard`                                                                     | Accepted         |
+| 2026-11-05 | State machine reducer moved from M5 into M2; added M0 for tooling                                                    | Accepted         |
+| 2026-11-05 | M1: integration tests use a real Postgres/Redis from env (CI service containers) instead of testcontainers           | Accepted         |
+| 2026-11-05 | M1: tests are non-destructive (`migrate deploy`, per-test tenants); no `migrate reset` in tooling                    | Accepted         |
+| 2026-11-05 | M1: `organizationId` added to `OrderItem` and `GuestSession` so KDS/guest queries are tenant-scoped                  | Accepted         |
+| 2026-11-05 | M1: audit via explicit `AuditService.record()` in the same transaction (not an interceptor) — real before/after      | Accepted         |
+| 2026-11-05 | M1: refresh tokens are opaque, hashed, rotated; reuse of a rotated token revokes the whole family                    | Accepted         |
+| 2026-11-05 | M1: PIN login locked per user after `PIN_MAX_ATTEMPTS` failures (Redis counter, `PIN_LOCKOUT_SECONDS`)               | Accepted         |
+| 2026-11-05 | M1: modules are CommonJS (Nest-friendly); `packages/*` build to `dist/` and turbo builds deps first                  | Accepted         |
+| 2026-11-05 | M2: table rows locked `FOR UPDATE` per transition; client `expectedVersion` → 409 `VERSION_CONFLICT`                 | Accepted         |
+| 2026-11-05 | M2: camera vacancy never auto-closes an unpaid table; with an order it raises LEFT_WITHOUT_PAYING                    | Accepted         |
+| 2026-11-05 | M2: a waiter-taken order counts as greet; QR orders only if `qrOrderSatisfiesGreet`                                  | Accepted         |
+| 2026-11-05 | M2: events that fulfil a task mark it DONE (greet, clean, pay); departures CANCEL the rest                           | Accepted         |
+| 2026-11-05 | M2: the greeting waiter becomes the serving waiter unless one is already assigned                                    | Accepted         |
+| 2026-11-05 | M2: only OWNER may grant OWNER/MANAGER; role changes and deactivation revoke sessions                                | Accepted         |
+| 2026-11-05 | M2: shared UI primitives live in the dashboard for now; extract `packages/ui` when guest/staff apps arrive (M3)      | Accepted         |
+| 2026-11-05 | M2: Next standalone output; `API_URL` / `NEXT_PUBLIC_API_URL` are build-time values                                  | Accepted         |
+| 2026-11-05 | M3: guest JWT (issuer `dinesense-guest`) per device per seating; stored per QR in localStorage                       | Accepted         |
+| 2026-11-05 | M3: QR orders → PENDING_APPROVAL (APPROVE_ORDER task); waiter orders → kitchen and count as greet                    | Accepted         |
+| 2026-11-05 | M3: order lines snapshot name, price incl. modifiers, tax rate; daily ticket numbers under an advisory lock          | Accepted         |
+| 2026-11-05 | M3: item flow QUEUED→COOKING→READY (chef) →SERVED (floor), VOID by managers; READY creates a SERVE task              | Accepted         |
+| 2026-11-05 | M3: running bill = per-line GST on accepted, non-void items; service charge/discounts/round-off come in M4           | Accepted         |
+| 2026-11-05 | M3: refresh-token reuse within `REFRESH_REUSE_GRACE_SECONDS` (20 s) continues the session (lost response)            | Accepted         |
+| 2026-11-05 | M3: Express `trust proxy` (`TRUST_PROXY`) so guest rate limits key on the real client IP behind Next                 | Accepted         |
+| 2026-11-05 | M3: `packages/ui` extracted (TSX source, `transpilePackages`); Tailwind `@source` scans it                           | Accepted         |
+| 2026-11-05 | M3: chef has a dashboard login (KDS); device-bound KDS screens with PIN come with the staff app in M4                | Accepted         |
+| 2026-11-05 | M4: one OPEN bill per seating holds all unbilled items; later orders go to a new bill; void keeps the number         | Accepted         |
+| 2026-11-05 | M4: discount (with reason) allocated pro rata before tax; service charge taxed at each line's rate                   | Accepted         |
+| 2026-11-05 | M4: GST rounded per rate total (not per line) so printed rate × base = tax; lines get exact shares                   | Accepted         |
+| 2026-11-05 | M4: payments ≤ amount due (no overpayment/change tracking); table → PAID when every live bill is paid                | Accepted         |
+| 2026-11-05 | M4: invoice is a signed, non-expiring HTML link (HMAC of bill id); English only as the legal document                | Accepted         |
+| 2026-11-05 | M4: web push via `web-push` (MPL-2.0, unmodified dependency); disabled when VAPID keys are absent                    | Accepted         |
+| 2026-11-05 | M4: unassigned tasks push to checked-in, on-shift, not-on-break staff whose role handles the task type               | Accepted         |
+| 2026-11-05 | M4: staff terminals are registered once by a manager; PIN screen lists names only; push follows the signed-in user   | Accepted         |
+| 2026-11-05 | M4: e2e runs built standalone apps on normal ports against `dinesense_e2e` (name must contain "e2e")                 | Accepted         |
+| 2026-11-05 | M5: one `evaluate` job type with deterministic ids per deadline instead of three job families; cancel = no-op        | Accepted         |
+| 2026-11-05 | M5: waiters with no sections cover every section; outlet-wide fallback uses its own cursor (`*`)                     | Accepted         |
+| 2026-11-05 | M5: tried waiters are skipped on re-assignment until everyone has been tried, then the rotation starts again         | Accepted         |
+| 2026-11-05 | M5: acknowledging (On my way / accepting the GREET task) stops re-assignment; only a greet stops escalation          | Accepted         |
+| 2026-11-05 | M5: assignment mode is per outlet (per-shift override stored but not yet used by the engine)                         | Accepted         |
+| 2026-11-05 | M5: managers' phones buzz only for escalation, no waiter available and left-without-paying; the rest is on screen    | Accepted         |
+| 2026-11-05 | M5: settings ladder validated server-side (escalation after the greet deadline; vacancy ≥ occupancy)                 | Accepted         |
+| 2026-11-05 | M6: edge auth = `x-ds-device` + timestamp + HMAC over method/path/body hash; secret = HMAC(EDGE_SECRET_KEY, id)      | Accepted         |
+| 2026-11-05 | M6: detector YOLOX (Apache-2.0, GitHub release ONNX, sha256-pinned); HuggingFace unreachable from build envs         | Flagged to owner |
+| 2026-11-05 | M6: own IoU tracker instead of supervision ByteTrack (removed from supervision 0.26+; tracking needs are simple)     | Accepted         |
+| 2026-11-05 | M6: snapshot privacy = pixelate person head regions + OpenCV Haar faces (bundled), not YuNet (no download needed)    | Accepted         |
+| 2026-11-05 | M6: no real footage available → synthetic labelled footage + synthetic detector for dev/eval; real accuracy TBD      | Flagged to owner |
+| 2026-11-05 | M6: camera workers are threads (ONNX releases the GIL), not processes; one detector instance shared                  | Accepted         |
+| 2026-11-05 | M6: occupancy counts seated people only; eval scores accuracy outside the configured debounce windows                | Accepted         |
+| 2026-11-05 | M7: Razorpay in TEST MODE only (owner); off unless keys + outlet toggle; live keys need owner approval               | Accepted (owner) |
+| 2026-11-05 | M7: split = plan on the bill (`splitPlan`) + `Payment.shareKey`; one invoice, shares sum exactly; frozen once paid   | Accepted         |
+| 2026-11-05 | M7: splitting (or a guest starting checkout) finalises an open bill; by-item picks are remapped to the new lines     | Accepted         |
+| 2026-11-05 | M7: pending online payment reused for 15 min (double taps share one order); blocks re-splitting meanwhile            | Accepted         |
+| 2026-11-05 | M7: excess online capture (bill settled meanwhile) is recorded + audited for refund, never dropped                   | Accepted         |
+| 2026-11-05 | M7: reports computed per local day by a pure `summarizeDay`; "missed" = assignment passed on without acknowledgement | Accepted         |

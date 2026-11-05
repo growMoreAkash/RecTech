@@ -201,3 +201,45 @@ Demo (API + dashboard running; from `services/vision`):
 Automated: 38 pytest tests (signing vector shared with TypeScript, JSON-Schema contract checks of every event,
 debounce/zone/tracker/staff rules, outbox + signed sender against a mock API, synthetic end-to-end ≥ 95 %, service
 loop), API integration tests for signatures/replay/dedupe/health, and dashboard zone helper tests.
+
+## M7 — Split bills, pay-at-table (Razorpay test mode), departure, reports (done 2026-11-05) — **Phase 2 complete**
+
+- **Split bill** (cash desk and waiters, from the table drawer): _Equally_ (whole rupees where possible), _By item_
+  (tick who had what; shared dishes are divided equally; GST, service charge and round-off follow the items) or
+  _Custom amounts_ (must add up). The shares always add up to the invoice total to the paisa; the invoice itself is
+  one legal document. Each share is paid separately (cash / UPI / card at the counter, or online by the guest).
+  Re-splitting is refused once money was taken or while a guest checkout is in progress.
+- **Pay at table**: with **Settings → Online payments** on and `RAZORPAY_*` keys on the server, the guest QR page
+  shows **Pay bill** — one button per unpaid share. The API creates a Razorpay order for the exact amount due,
+  the phone opens Razorpay Checkout (UPI intent / cards), the API verifies the checkout signature, and the
+  Razorpay webhook (HMAC of the raw body) confirms the same payment independently — whichever arrives first wins,
+  the second changes nothing. Money arriving for an already-settled bill is still recorded and flagged
+  (`bill.payment.excess` in the audit log) for a refund from the Razorpay dashboard. Without keys, guests are told
+  to pay at the counter.
+- **Departure**: paid table + camera sees it empty (or staff taps _Guests left_) → _Needs cleaning_ + CLEAN task for
+  bussers → _Cleaned_ → _Vacant_. Unpaid table with orders emptied by the camera → critical _Left without paying_
+  alert; the table is not closed automatically.
+- **Reports** (managers): seatings and covers, average/median seat-to-greet, % greeted within the SLA, SLA breaches
+  and escalations, left-without-paying count; per waiter: greets, assigned, acknowledged, missed (passed on), average
+  acknowledgement time; invoiced sales by hour (chart with a table view), average bill, collections by method.
+
+Demo (dashboard + guest phone; for a real sandbox checkout add Razorpay **test** keys — `rzp_test_…` — to `.env`):
+
+1. Manager → **Settings → Online payments** → tick → Save.
+2. Seat **T11** and take an order (3 items). Drawer → **Create bill** → **Split bill** → _By item_ → 3 people
+   (Asha, Ravi, —), tick who had what (share the first dish) → **Save split**: the bill is finalised and shows three
+   shares that add up to the total.
+3. Cash desk: pick _Ravi_ in the payment form → **Record payment** (UPI) → Ravi's share shows _Paid_.
+4. Guest phone (T11 QR) → **Pay bill** → _Pay Asha's share_ → Razorpay test checkout → test UPI `success@razorpay`
+   → back on the page the share shows _Paid_; the dashboard updates live. Pay the last share the same way (or at the
+   counter): T11 turns _Paid_.
+5. Staff app: **Guests left** (or the camera reports the table empty) → _Needs cleaning_; a busser taps **Cleaned**
+   → _Vacant_.
+6. Seat T12 and order; with the M6 dev camera running, let the synthetic guests at T12's zone leave before paying
+   (or have the edge send a `table.vacated` event) → critical _Left without paying_ alert; T12 stays open.
+7. **Reports**: today's seatings, greet times, waiter table, sales by hour and collections by method.
+
+Automated: split maths unit tests (incl. a 300-bill randomised by-item sweep), payments integration tests against a
+mock Razorpay API (order creation with Basic auth, forged checkout and webhook signatures rejected, idempotent
+capture, webhook-only settlement, provider outage, abandoned checkout, late excess capture), camera departure chain
+(paid → empty → clean → vacant; unpaid → alert), reports unit + integration tests.

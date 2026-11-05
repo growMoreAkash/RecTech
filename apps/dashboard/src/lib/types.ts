@@ -219,6 +219,18 @@ export interface Payment {
   amountPaise: number;
   reference: string | null;
   capturedAt: string | null;
+  shareKey: string | null;
+  provider: string | null;
+  createdAt: string;
+}
+
+export interface BillShare {
+  key: string;
+  label: string | null;
+  amountPaise: number;
+  lineIds?: string[];
+  paidPaise: number;
+  duePaise: number;
 }
 
 export interface Bill {
@@ -241,6 +253,7 @@ export interface Bill {
   invoiceUrl: string;
   lines: BillLine[];
   payments: Payment[];
+  split: { mode: 'EQUAL' | 'BY_ITEM' | 'CUSTOM'; shares: BillShare[] } | null;
 }
 
 export interface AuditEntry {
@@ -297,4 +310,33 @@ export interface EdgeDevice {
   revokedAt: string | null;
   createdAt: string;
   _count: { cameras: number };
+}
+
+export interface DayReport {
+  date: string;
+  timeZone: string;
+  greetSlaSeconds: number;
+  seatings: {
+    total: number;
+    covers: number;
+    greeted: number;
+    avgSeatToGreetSeconds: number | null;
+    medianSeatToGreetSeconds: number | null;
+    greetedWithinSlaPct: number | null;
+    slaBreaches: number;
+    escalations: number;
+    leftWithoutPaying: number;
+  };
+  waiters: {
+    waiterId: string;
+    name: string;
+    greets: number;
+    assignments: number;
+    acknowledged: number;
+    missed: number;
+    avgAckSeconds: number | null;
+  }[];
+  salesByHour: { hour: number; bills: number; totalPaise: number }[];
+  payments: { method: Payment['method']; count: number; amountPaise: number }[];
+  sales: { bills: number; totalPaise: number; avgBillPaise: number | null };
 }

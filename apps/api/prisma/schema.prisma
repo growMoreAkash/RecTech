@@ -247,6 +247,8 @@ model OutletSettings {
   serviceChargeBps          Int            @default(0)
   pricesIncludeTax          Boolean        @default(false)
   defaultMaxTables          Int            @default(4)
+  /// Guests may pay from the QR page (needs a configured payment provider).
+  onlinePaymentsEnabled     Boolean        @default(false)
   updatedAt                 DateTime       @updatedAt
 
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
@@ -896,6 +898,8 @@ model Bill {
   paidAt             DateTime?
   voidedAt           DateTime?
   voidReason         String?
+  /// Split plan ({ mode, shares: [{ key, label, amountPaise, lineIds? }] }); payments reference a share by key.
+  splitPlan          Json?
 
   outlet   Outlet     @relation(fields: [outletId], references: [id])
   seating  Seating    @relation(fields: [seatingId], references: [id])
@@ -945,18 +949,27 @@ model InvoiceSequence {
 }
 
 model Payment {
-  id             String        @id @default(cuid())
-  organizationId String
-  outletId       String
-  billId         String
-  method         PaymentMethod
-  status         PaymentStatus
-  amountPaise    Int
+  id                String        @id @default(cuid())
+  organizationId    String
+  outletId          String
+  billId            String
+  method            PaymentMethod
+  status            PaymentStatus
+  amountPaise       Int
   /// UPI ref / card last4 / Razorpay payment id.
-  reference      String?
-  receivedById   String?
-  createdAt      DateTime      @default(now())
-  capturedAt     DateTime?
+  reference         String?
+  /// Null for guest (online) payments.
+  receivedById      String?
+  /// Split share this payment settles (Bill.splitPlan), if any.
+  shareKey          String?
+  /// Online payments: "razorpay"; null for counter payments.
+  provider          String?
+  providerOrderId   String?       @unique
+  providerPaymentId String?       @unique
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @default(now()) @updatedAt
+  capturedAt        DateTime?
 
   outlet Outlet @relation(fields: [outletId], references: [id])
   bill   Bill   @relation(fields: [billId], references: [id])

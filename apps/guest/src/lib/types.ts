@@ -62,3 +62,39 @@ export interface Orders {
   orders: GuestOrder[];
   bill: Totals;
 }
+
+export interface GuestShare {
+  key: string;
+  label: string | null;
+  amountPaise: number;
+  paidPaise: number;
+  duePaise: number;
+}
+
+export interface GuestBill {
+  id: string;
+  status: 'OPEN' | 'FINALIZED' | 'PAID';
+  invoiceNumber: string | null;
+  totalPaise: number;
+  paidPaise: number;
+  duePaise: number;
+  invoiceUrl: string | null;
+  split: { mode: string; shares: GuestShare[] } | null;
+  lines: { id: string; description: string; quantity: number }[];
+  checkoutInProgress: boolean;
+}
+
+export interface GuestBills {
+  onlinePayments: boolean;
+  bills: GuestBill[];
+}
+
+export interface CheckoutStart {
+  provider: string;
+  keyId: string;
+  orderId: string;
+  amountPaise: number;
+  currency: string;
+  name: string;
+  description: string;
+}

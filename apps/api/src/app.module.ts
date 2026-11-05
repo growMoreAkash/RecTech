@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { AlertsModule } from './alerts/alerts.module';
 import { AuditModule } from './audit/audit.module';
 import { BillingModule } from './billing/billing.module';
+import { ReportsModule } from './reports/reports.module';
 import { AuthModule } from './auth/auth.module';
 import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
@@ -64,6 +65,7 @@ import { TableStateModule } from './table-state/table-state.module';
     OrderingModule,
     GuestModule,
     BillingModule,
+    ReportsModule,
     EdgeModule,
   ],
   controllers: [HealthController, MeController],

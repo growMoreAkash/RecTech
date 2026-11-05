@@ -48,6 +48,14 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(20).optional(),
   VAPID_PRIVATE_KEY: z.string().min(20).optional(),
   VAPID_SUBJECT: z.string().default('mailto:ops@example.com'),
+  /**
+   * Razorpay (PAID SERVICE: per-transaction fees on live keys). Online payment is off unless all three are set.
+   * Use test-mode keys (rzp_test_…) until the owner approves going live.
+   */
+  RAZORPAY_KEY_ID: z.string().min(8).optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(8).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(8).optional(),
+  RAZORPAY_API_URL: z.string().url().default('https://api.razorpay.com/v1'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

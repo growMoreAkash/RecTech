@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { ApiError, deviceId, guestApi, savedToken, saveToken } from './api';
-import type { Cart, Landing, Orders } from './types';
+import type { Cart, GuestBills, Landing, Orders } from './types';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -86,6 +86,12 @@ export function useTableSession(qr: string) {
     enabled: !!token,
   });
 
+  const bills = useQuery({
+    queryKey: ['bills', token],
+    queryFn: () => watched(guestApi<GuestBills>('/bills', { token })),
+    enabled: !!token,
+  });
+
   useEffect(() => {
     if (!token) return;
     const socket: Socket<ServerToClientEvents> = io(`${SOCKET_URL}${RT_NAMESPACE}`, {
@@ -95,6 +101,7 @@ export function useTableSession(qr: string) {
     socket.on('connect', () => void qc.invalidateQueries());
     socket.on('cart.updated', () => void qc.invalidateQueries({ queryKey: ['cart', token] }));
     socket.on('order.updated', () => void qc.invalidateQueries({ queryKey: ['orders', token] }));
+    socket.on('bill.updated', () => void qc.invalidateQueries({ queryKey: ['bills', token] }));
     socket.on('menu.changed', () => void qc.invalidateQueries({ queryKey: ['landing', qr] }));
     socket.on('menu.availability', (p) =>
       qc.setQueryData<Landing>(
@@ -132,6 +139,7 @@ export function useTableSession(qr: string) {
     token,
     cart: cart.data,
     orders: orders.data,
+    bills: bills.data,
     onError,
   };
 }

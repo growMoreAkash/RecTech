@@ -20,6 +20,7 @@ export const outletSettingsSchema = z
     serviceChargeBps: z.number().int().min(0).max(2500),
     pricesIncludeTax: z.boolean(),
     defaultMaxTables: z.number().int().min(1).max(50),
+    onlinePaymentsEnabled: z.boolean(),
   })
   .strict();
 export type OutletSettingsInput = z.infer<typeof outletSettingsSchema>;
@@ -44,6 +45,7 @@ export const DEFAULT_OUTLET_SETTINGS: OutletSettingsInput = {
   serviceChargeBps: 0,
   pricesIncludeTax: false,
   defaultMaxTables: 4,
+  onlinePaymentsEnabled: false,
 };
 
 export const paginationSchema = z.object({

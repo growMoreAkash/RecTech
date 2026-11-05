@@ -12,6 +12,7 @@ import { paiseToRupees, rupeesToPaise } from '@/lib/money-input';
 import { useOutletMutation, useTableBills } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import type { Bill } from '@/lib/types';
+import { shareName, SplitPanel } from './split-panel';
 
 /** Bill for the table: build it, adjust (cash desk), finalise, take payments, print the invoice. */
 export function BillPanel({ tableId }: { tableId: string }) {
@@ -59,8 +60,15 @@ function BillCard({ bill }: { bill: Bill }) {
   const [reason, setReason] = useState(bill.discountReason ?? '');
   const [sc, setSc] = useState(String(bill.serviceChargeBps / 100));
   const [method, setMethod] = useState<(typeof MANUAL_PAYMENT_METHODS)[number]>('CASH');
-  const [amount, setAmount] = useState(paiseToRupees(bill.duePaise));
+  const [amount, setAmount] = useState(
+    paiseToRupees(bill.split?.shares.find((s) => s.duePaise)?.duePaise ?? bill.duePaise),
+  );
   const [reference, setReference] = useState('');
+  const firstDue = bill.split?.shares.find((s) => s.duePaise);
+  const [shareKey, setShareKey] = useState(firstDue?.key ?? '');
+  const splitter = desk || can('WAITER');
+  const live = bill.status === 'OPEN' || bill.status === 'FINALIZED';
+  const onlinePending = bill.payments.some((p) => p.status === 'PENDING' && p.provider);
   const base = `/outlets/${outlet.id}/bills/${bill.id}`;
 
   const adjust = useOutletMutation(outlet.id, (body: object) => api(base, { method: 'PATCH', body }));
@@ -115,6 +123,32 @@ function BillCard({ bill }: { bill: Bill }) {
         ) : null}
       </dl>
 
+      {(live && splitter) || bill.split ? <SplitPanel bill={bill} /> : null}
+      {onlinePending ? (
+        <p role="status" className="rounded-md bg-sky-50 p-2 text-xs text-sky-900">
+          {t('onlinePending')}
+        </p>
+      ) : null}
+      {bill.payments.some((p) => p.status === 'CAPTURED') ? (
+        <ul aria-label={t('payments')} className="space-y-0.5 text-xs text-slate-600">
+          {bill.payments
+            .filter((p) => p.status === 'CAPTURED')
+            .map((p) => {
+              const i = bill.split?.shares.findIndex((s) => s.key === p.shareKey) ?? -1;
+              return (
+                <li key={p.id} className="flex justify-between gap-2">
+                  <span>
+                    {t(`methods.${p.method}`)}
+                    {i >= 0 && bill.split ? ` · ${shareName(t, bill.split.shares[i]!, i)}` : ''}
+                    {p.reference ? ` · ${p.reference}` : ''}
+                  </span>
+                  <Money paise={p.amountPaise} />
+                </li>
+              );
+            })}
+        </ul>
+      ) : null}
+
       {bill.status === 'OPEN' && desk ? (
         <fieldset className="space-y-2 rounded-md bg-slate-50 p-2">
           <legend className="sr-only">{t('adjust')}</legend>
@@ -163,6 +197,27 @@ function BillCard({ bill }: { bill: Bill }) {
             </Button>
           ) : null}
           <div className="flex flex-wrap gap-2">
+            {bill.split ? (
+              <Select
+                aria-label={t('split.payShare')}
+                value={shareKey}
+                onChange={(e) => {
+                  setShareKey(e.target.value);
+                  const s = bill.split?.shares.find((x) => x.key === e.target.value);
+                  setAmount(paiseToRupees(s ? s.duePaise : bill.duePaise));
+                }}
+                className="w-36"
+              >
+                {bill.split.shares.map((s, i) =>
+                  s.duePaise ? (
+                    <option key={s.key} value={s.key}>
+                      {shareName(t, s, i)}
+                    </option>
+                  ) : null,
+                )}
+                <option value="">{t('split.wholeBill')}</option>
+              </Select>
+            ) : null}
             <Select
               aria-label={t('method')}
               value={method}
@@ -197,7 +252,12 @@ function BillCard({ bill }: { bill: Bill }) {
               onClick={() =>
                 amountPaise &&
                 pay.mutate(
-                  { method, amountPaise, ...(reference.trim() ? { reference: reference.trim() } : {}) },
+                  {
+                    method,
+                    amountPaise,
+                    ...(reference.trim() ? { reference: reference.trim() } : {}),
+                    ...(bill.split && shareKey ? { shareKey } : {}),
+                  },
                   { onSuccess: () => setReference('') },
                 )
               }

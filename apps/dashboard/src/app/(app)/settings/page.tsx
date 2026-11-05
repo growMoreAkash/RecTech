@@ -59,6 +59,7 @@ export default function SettingsPage() {
         staffPresentSeconds: num('staffPresentSeconds'),
         staffPresentMinConfidence: num('staffPresentMinConfidence'),
         cameraGreetEnabled: on('cameraGreetEnabled'),
+        onlinePaymentsEnabled: on('onlinePaymentsEnabled'),
       },
       { onSuccess: () => setSaved(true) },
     );
@@ -168,6 +169,13 @@ export default function SettingsPage() {
             name="pricesIncludeTax"
             label={t('billing.includeTax')}
             defaultChecked={s.pricesIncludeTax}
+          />
+        </Section>
+        <Section title={t('payments.title')} hint={t('payments.hint')}>
+          <Check
+            name="onlinePaymentsEnabled"
+            label={t('payments.online')}
+            defaultChecked={s.onlinePaymentsEnabled}
           />
         </Section>
         <Section title={t('camera.title')} hint={t('camera.hint')}>

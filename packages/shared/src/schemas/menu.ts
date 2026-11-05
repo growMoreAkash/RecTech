@@ -192,6 +192,11 @@ export const paymentSchema = z
     amountPaise: z.number().int().min(1).max(100_000_000),
     /** UPI reference / card last 4 / note. */
     reference: z.string().trim().max(60).optional(),
+    /** Split share this payment settles (see split.ts). */
+    shareKey: z
+      .string()
+      .regex(/^s\d{1,2}$/)
+      .optional(),
   })
   .strict();
 export type PaymentInput = z.infer<typeof paymentSchema>;

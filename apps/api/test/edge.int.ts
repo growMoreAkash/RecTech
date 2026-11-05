@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EdgeService } from '../src/edge/edge.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { SlaEngine } from '../src/sla/sla-engine.service';
-import { bearer, createApp, createTenant, loginAll, randomId, type Tenant } from './fixtures';
+import { bearer, createApp, createMenu, createTenant, loginAll, randomId, type Tenant } from './fixtures';
 
 describe('edge devices, cameras, zones and camera events (M6)', () => {
   let app: INestApplication;
@@ -298,6 +298,77 @@ describe('edge devices, cameras, zones and camera events (M6)', () => {
 
     const cams = await http().get(`${o()}/cameras`).set(bearer(tok.manager)).expect(200);
     expect(cams.body[0]).toMatchObject({ healthy: false, hasSnapshot: true, zones: expect.any(Array) });
+  });
+
+  it('M7 departure: paid table emptied by the camera → cleaning task → busser → vacant; unpaid → alert', async () => {
+    const m = await createMenu(prisma, t);
+    const quad = (x: number) => [
+      [x, 0.6],
+      [x + 0.2, 0.6],
+      [x + 0.2, 0.9],
+      [x, 0.9],
+    ];
+    await http()
+      .put(`${o()}/cameras/${cameraId}/zones`)
+      .set(bearer(tok.manager))
+      .send({
+        zones: [
+          { tableId: t.tables.T3, polygon: quad(0.1) },
+          { tableId: t.tables.T4, polygon: quad(0.5) },
+        ],
+      })
+      .expect(200);
+    const dine = async (tableId: string) => {
+      await http()
+        .post(`${o()}/tables/${tableId}/seat`)
+        .set(bearer(tok.host))
+        .send({ partySize: 2 })
+        .expect(200);
+      await http()
+        .post(`${o()}/tables/${tableId}/orders`)
+        .set(bearer(tok.waiter))
+        .send({ items: [{ menuItemId: m.items.lassi, quantity: 1 }] })
+        .expect(201);
+      return (await http().post(`${o()}/tables/${tableId}/bills`).set(bearer(tok.waiter)).expect(200))
+        .body as {
+        id: string;
+        totalPaise: number;
+      };
+    };
+    const vacate = (tableId: string) =>
+      events([evt('table.vacated', { tableId, confidence: 0.95, payload: { emptySeconds: 90 } })]).expect(
+        200,
+      );
+
+    // T3: settles the bill, then the camera sees the table empty.
+    const bill = await dine(t.tables.T3);
+    await http()
+      .post(`${o()}/bills/${bill.id}/payments`)
+      .set(bearer(tok.owner))
+      .send({ method: 'CASH', amountPaise: bill.totalPaise })
+      .expect(200);
+    expect(await status(t.tables.T3)).toBe('PAID');
+    await vacate(t.tables.T3);
+    expect(await status(t.tables.T3)).toBe('NEEDS_CLEANING');
+    const clean = await prisma.task.findFirstOrThrow({ where: { tableId: t.tables.T3, type: 'CLEAN' } });
+    expect(clean.status).toBe('OPEN');
+    await http()
+      .post(`${o()}/tables/${t.tables.T3}/transitions`)
+      .set(bearer(tok.busser))
+      .send({ event: 'CLEAN_CONFIRMED' })
+      .expect(200);
+    expect(await status(t.tables.T3)).toBe('VACANT');
+    expect((await prisma.task.findUniqueOrThrow({ where: { id: clean.id } })).status).toBe('DONE');
+
+    // T4: leaves without paying — the table stays as it was and managers get a critical alert.
+    await dine(t.tables.T4);
+    const before = await status(t.tables.T4);
+    await vacate(t.tables.T4);
+    expect(await status(t.tables.T4)).toBe(before);
+    const alert = await prisma.alert.findFirstOrThrow({
+      where: { tableId: t.tables.T4, type: 'LEFT_WITHOUT_PAYING' },
+    });
+    expect(alert).toMatchObject({ severity: 'CRITICAL', status: 'OPEN' });
   });
 
   it('revoking a device locks it out and disables its cameras', async () => {

@@ -14,5 +14,10 @@ process.env.EDGE_HEALTH_SWEEP_SECONDS = '0';
 process.env.VAPID_PUBLIC_KEY ??=
   'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
 process.env.VAPID_PRIVATE_KEY ??= 'UUxI4O8-FbRouAevSmBQ6o18hgE4nSG3qwvJTfKc-ls';
+// Razorpay test credentials (fake); the payments test points RAZORPAY_API_URL at a local mock server.
+process.env.RAZORPAY_KEY_ID ??= 'rzp_test_dinesense';
+process.env.RAZORPAY_KEY_SECRET ??= 'test_key_secret_0123456789';
+process.env.RAZORPAY_WEBHOOK_SECRET ??= 'test_webhook_secret_0123456789';
+process.env.RAZORPAY_API_URL ??= 'http://127.0.0.1:9/v1';
 
 export {};

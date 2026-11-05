@@ -57,7 +57,8 @@
     "alertsCentre": "Alerts",
     "audit": "Audit log",
     "settings": "Settings",
-    "cameras": "Cameras"
+    "cameras": "Cameras",
+    "reports": "Reports"
   },
   "login": {
     "title": "Sign in to DineSense",
@@ -86,7 +87,11 @@
     "BILL_NOT_EDITABLE": "This bill can no longer be changed.",
     "DISCOUNT_TOO_LARGE": "The discount is larger than the bill.",
     "OVERPAYMENT": "That is more than the amount due.",
-    "DEVICE_NOT_REGISTERED": "This device is not registered."
+    "DEVICE_NOT_REGISTERED": "This device is not registered.",
+    "SPLIT_INVALID": "That split doesn't add up to the bill.",
+    "PAYMENT_IN_PROGRESS": "A guest is paying this bill online right now. Try again in a few minutes.",
+    "PAYMENTS_UNAVAILABLE": "Online payment isn't available here. Please pay at the counter.",
+    "PAYMENT_VERIFICATION_FAILED": "We couldn't confirm that payment. If money was taken, show this to the staff."
   },
   "roles": {
     "OWNER": "Owner",
@@ -349,7 +354,30 @@
       "CART_EMPTY": "Add something before placing the order.",
       "RATE_LIMITED": "Too many requests — please wait a moment.",
       "VALIDATION_FAILED": "Please check your order.",
-      "UNAUTHENTICATED": "Please scan the table QR code again."
+      "UNAUTHENTICATED": "Please scan the table QR code again.",
+      "PAYMENTS_UNAVAILABLE": "Online payment isn't available right now. Please pay at the counter.",
+      "PAYMENT_IN_PROGRESS": "Someone at your table is already paying. Try again in a minute.",
+      "PAYMENT_VERIFICATION_FAILED": "We couldn't confirm that payment. If money was taken, please show this to the staff.",
+      "BILL_NOT_EDITABLE": "This bill is already settled.",
+      "NOTHING_TO_BILL": "Nothing to pay yet."
+    },
+    "pay": {
+      "cta": "Pay bill",
+      "title": "Pay your bill",
+      "thanks": "Payment received. Thank you!",
+      "failed": "Payment didn't go through: {reason}. You were not charged; try again or pay at the counter.",
+      "nothing": "Nothing to pay yet.",
+      "yourBill": "Your bill",
+      "share": "Share {n}",
+      "sharePaid": "Paid",
+      "paid": "Paid — thank you!",
+      "payShare": "Pay {name}'s share",
+      "payAll": "Pay",
+      "finalNote": "Paying closes the bill; anything you order later goes on a new bill.",
+      "atCounter": "Please pay at the counter or ask your server.",
+      "invoice": "View tax invoice",
+      "secure": "UPI and cards via Razorpay. Card details never reach the restaurant.",
+      "payShareN": "Pay share {n}"
     }
   },
   "kds": {
@@ -606,7 +634,39 @@
     "time": "Time",
     "statusLabel": "Status",
     "none": "No bills on this day.",
-    "cashDeskOnly": "Only the cash desk can see bills."
+    "cashDeskOnly": "Only the cash desk can see bills.",
+    "onlinePending": "A guest has started paying online. Check before taking money at the counter.",
+    "payments": "Payments",
+    "split": {
+      "title": "Split bill",
+      "start": "Split bill",
+      "change": "Change split",
+      "remove": "Remove split",
+      "mode": "How to split",
+      "ways": "Ways",
+      "people": "People",
+      "name": "Name of person {n}",
+      "amountFor": "Amount for person {n} (₹)",
+      "share": "Share {n}",
+      "item": "Item",
+      "assign": "{item} for {person}",
+      "byItemHint": "Tick who had each item; shared items are divided equally.",
+      "unassigned": "{count, plural, one {# item has} other {# items have}} nobody yet.",
+      "left": "₹{amount} left to assign",
+      "balanced": "Adds up to the bill.",
+      "save": "Save split",
+      "cancel": "Cancel",
+      "finalises": "Splitting finalises the bill (invoice number assigned).",
+      "due": "₹{amount} due",
+      "paid": "Paid",
+      "payShare": "Share",
+      "wholeBill": "Whole bill",
+      "modes": {
+        "EQUAL": "Equally",
+        "BY_ITEM": "By item",
+        "CUSTOM": "Custom amounts"
+      }
+    }
   },
   "audit": {
     "title": "Audit log",
@@ -664,6 +724,11 @@
       "staffSeconds": "Staff at table for (seconds)",
       "confidence": "Minimum confidence (0–1)",
       "greet": "Camera may count a staff visit as the greet"
+    },
+    "payments": {
+      "title": "Online payments",
+      "online": "Guests can pay from the table QR page (UPI / cards)",
+      "hint": "Uses Razorpay (per-transaction fees on live keys). Needs RAZORPAY_* keys on the server; test-mode keys until you go live."
     }
   },
   "cameras": {
@@ -742,6 +807,48 @@
       "top": "Top %",
       "right": "Right %",
       "bottom": "Bottom %"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "managersOnly": "Only managers can see reports.",
+    "date": "Day",
+    "floor": "Floor & greeting",
+    "seatings": "Seatings",
+    "covers": "{count, plural, one {# guest} other {# guests}}",
+    "avgGreet": "Avg seat → greet (m:ss)",
+    "median": "median {value}",
+    "withinSla": "Greeted within {minutes} min",
+    "greeted": "{count, plural, one {# table greeted} other {# tables greeted}}",
+    "breaches": "Greet SLA breaches",
+    "escalations": "{count, plural, one {# escalated} other {# escalated}}",
+    "lwp": "{count, plural, one {# table} other {# tables}} left without paying",
+    "waiters": "Waiters",
+    "waiter": "Waiter",
+    "greets": "Greets",
+    "assignments": "Assigned",
+    "acknowledged": "Acknowledged",
+    "missed": "Missed (passed on)",
+    "avgAck": "Avg ack (m:ss)",
+    "noWaiters": "No greets or assignments on this day.",
+    "sales": "Sales",
+    "salesTotal": "Invoiced",
+    "bills": "{count, plural, one {# bill} other {# bills}}",
+    "billsCount": "{count, plural, one {# bill} other {# bills}}",
+    "avgBill": "Average bill",
+    "byHour": "Invoiced sales by hour",
+    "noSales": "No invoices on this day.",
+    "showTable": "Show as table",
+    "showChart": "Show chart",
+    "hour": "Hour",
+    "billsCol": "Bills",
+    "byMethod": "Collected by method",
+    "methods": {
+      "CASH": "Cash",
+      "UPI": "UPI",
+      "CARD": "Card",
+      "RAZORPAY": "Online (Razorpay)",
+      "OTHER": "Other"
     }
   }
 }

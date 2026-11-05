@@ -1,8 +1,22 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   type BillAdjustInput,
   billAdjustSchema,
+  type BillSplitInput,
+  billSplitSchema,
   localDayRange,
   type PaymentInput,
   paymentSchema,
@@ -103,6 +117,29 @@ export class BillingController {
     @Body(new ZodPipe(paymentSchema)) body: PaymentInput,
   ) {
     return this.billing.pay(ctx.user.org, outletId, billId, body, actorFromContext(ctx));
+  }
+
+  /** Split into shares (equal / by item / custom); `null` body via DELETE clears it. */
+  @Put('bills/:billId/split')
+  @Roles(...CASH_DESK, 'WAITER')
+  @ApiZodBody(billSplitSchema)
+  split(
+    @Ctx() ctx: RequestContext,
+    @Param('outletId') outletId: string,
+    @Param('billId') billId: string,
+    @Body(new ZodPipe(billSplitSchema)) body: BillSplitInput,
+  ) {
+    return this.billing.split(ctx.user.org, outletId, billId, body, actorFromContext(ctx));
+  }
+
+  @Delete('bills/:billId/split')
+  @Roles(...CASH_DESK, 'WAITER')
+  clearSplit(
+    @Ctx() ctx: RequestContext,
+    @Param('outletId') outletId: string,
+    @Param('billId') billId: string,
+  ) {
+    return this.billing.split(ctx.user.org, outletId, billId, null, actorFromContext(ctx));
   }
 
   @Post('bills/:billId/void')

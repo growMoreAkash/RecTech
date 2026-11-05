@@ -19,6 +19,8 @@ import { ErrorText } from './error-text';
 import { ItemSheet } from './item-sheet';
 import { LocaleToggle } from './locale-toggle';
 import { OrdersSheet } from './orders-sheet';
+import { PaySheet } from './pay-sheet';
+import { payTargets } from '@/lib/pay';
 import { guestApi } from '@/lib/api';
 import { useTableSession } from '@/lib/table-session';
 import type { MenuItem } from '@/lib/types';
@@ -30,6 +32,7 @@ export function TablePage({ qr }: { qr: string }) {
   const [item, setItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<unknown>(null);
 
@@ -178,6 +181,17 @@ export function TablePage({ qr }: { qr: string }) {
                 </button>
               ))}
             </div>
+            {s.bills?.onlinePayments &&
+            s.bills.bills.some((b) => b.status !== 'OPEN' && payTargets(b).length) ? (
+              <Button
+                size="lg"
+                className="w-full bg-emerald-700 hover:bg-emerald-800"
+                onClick={() => setPayOpen(true)}
+              >
+                <ReceiptIndianRupee className="size-5" aria-hidden />
+                {t('pay.cta')}
+              </Button>
+            ) : null}
             <div className="flex gap-2">
               <Button variant="secondary" size="lg" className="flex-1" onClick={() => setOrdersOpen(true)}>
                 <ClipboardList className="size-5" aria-hidden />
@@ -204,7 +218,17 @@ export function TablePage({ qr }: { qr: string }) {
           setOrdersOpen(true);
         }}
       />
-      <OrdersSheet open={ordersOpen} onOpenChange={setOrdersOpen} orders={s.orders} />
+      <OrdersSheet
+        open={ordersOpen}
+        onOpenChange={setOrdersOpen}
+        orders={s.orders}
+        canPay={!!s.bills?.onlinePayments}
+        onPay={() => {
+          setOrdersOpen(false);
+          setPayOpen(true);
+        }}
+      />
+      <PaySheet open={payOpen} onOpenChange={setPayOpen} bills={s.bills} token={s.token} />
     </div>
   );
 }
