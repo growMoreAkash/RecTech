@@ -26,6 +26,8 @@ const layoutSelect = {
   h: true,
   rotation: true,
   joinableWith: true,
+  /** Printed on the table's QR code (public by design). */
+  qrToken: true,
 } as const;
 
 @Injectable()

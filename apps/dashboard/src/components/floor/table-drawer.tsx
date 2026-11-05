@@ -13,12 +13,13 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { type FormEvent, useState } from 'react';
 import { ErrorText } from '@/components/error-text';
 import { StatusBadge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Field, Input, Select } from '@/components/ui/field';
-import { Sheet } from '@/components/ui/sheet';
+import { Button } from '@dinesense/ui/button';
+import { Field, Input, Select } from '@dinesense/ui/field';
+import { Sheet } from '@dinesense/ui/sheet';
 import { api } from '@/lib/api';
 import { elapsedSince, formatDuration } from '@/lib/floor-style';
-import { useOutletMutation, useTimeline } from '@/lib/queries';
+import { useOutletMutation, useTableOrders, useTimeline } from '@/lib/queries';
+import { OrderCard } from './orders-panel';
 import { useSession } from '@/lib/session';
 import type { FloorSnapshot, FloorTable } from '@/lib/types';
 import { formText, useNow } from '@/lib/utils';
@@ -139,6 +140,8 @@ function DrawerBody({ table, floor }: { table: FloorTable; floor: FloorSnapshot 
         </section>
       ) : null}
       <ErrorText error={send.error} />
+
+      {seating ? <TableOrders tableId={table.id} /> : null}
 
       {can('OWNER', 'MANAGER') ? (
         <ForceState
@@ -287,5 +290,22 @@ function ForceState({
         </Button>
       </div>
     </details>
+  );
+}
+
+function TableOrders({ tableId }: { tableId: string }) {
+  const t = useTranslations('orders');
+  const { outlet } = useSession();
+  const orders = useTableOrders(outlet.id, tableId);
+  if (!orders.data?.length) return null;
+  return (
+    <section aria-labelledby="orders-h" className="space-y-2">
+      <h3 id="orders-h" className="text-sm font-semibold">
+        {t('title')}
+      </h3>
+      {orders.data.map((o) => (
+        <OrderCard key={o.id} order={o} />
+      ))}
+    </section>
   );
 }

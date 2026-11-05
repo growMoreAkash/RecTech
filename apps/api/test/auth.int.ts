@@ -48,7 +48,7 @@ describe('auth', () => {
     expect(res.body.error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('rotates refresh tokens and revokes the family when a rotated token is reused', async () => {
+  it('revokes the whole family when a rotated token is replayed after the grace window', async () => {
     const first = await login(app, t.users.manager.email);
     const second = await http()
       .post('/api/v1/auth/refresh')
@@ -56,9 +56,24 @@ describe('auth', () => {
       .expect(200);
     expect(second.body.refreshToken).not.toBe(first.refreshToken);
 
-    // Replaying the old token = theft signal → whole family revoked.
+    // Age the rotation beyond the grace window: replaying the old token is now a theft signal.
+    await prisma.refreshToken.updateMany({
+      where: { userId: t.users.manager.id, rotatedAt: { not: null } },
+      data: { rotatedAt: new Date(Date.now() - 60_000) },
+    });
     await http().post('/api/v1/auth/refresh').send({ refreshToken: first.refreshToken }).expect(401);
     await http().post('/api/v1/auth/refresh').send({ refreshToken: second.body.refreshToken }).expect(401);
+  });
+
+  it('tolerates a just-rotated token (lost response) without logging the user out', async () => {
+    const first = await login(app, t.users.owner.email);
+    await http().post('/api/v1/auth/refresh').send({ refreshToken: first.refreshToken }).expect(200); // response "lost"
+    const retry = await http()
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: first.refreshToken })
+      .expect(200);
+    await http().get('/api/v1/me').set(bearer(retry.body.accessToken)).expect(200);
+    await http().post('/api/v1/auth/refresh').send({ refreshToken: retry.body.refreshToken }).expect(200);
   });
 
   it('accepts the refresh token from the httpOnly cookie', async () => {

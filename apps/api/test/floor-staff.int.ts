@@ -17,6 +17,7 @@ interface FloorTable {
   h: number;
   rotation: number;
   joinableWith: string[];
+  qrToken: string;
   live: { status: string };
 }
 
@@ -27,7 +28,7 @@ describe('floor plan, staff and shifts (M2)', () => {
   let tok: Awaited<ReturnType<typeof loginAll>>;
   const http = () => request(app.getHttpServer());
   const base = () => `/api/v1/outlets/${t.outletId}`;
-  const toInput = ({ live: _l, id, ...rest }: FloorTable) => ({ ...rest, id, key: id });
+  const toInput = ({ live: _l, qrToken: _q, id, ...rest }: FloorTable) => ({ ...rest, id, key: id });
 
   beforeAll(async () => {
     ({ app, prisma } = await createApp());

@@ -12,7 +12,7 @@ pnpm --filter @dinesense/api db:migrate
 pnpm --filter @dinesense/api seed      # dev DB only — wipes and re-seeds
 ```
 
-Seed logins: `owner|manager|host|cashier@demo.dinesense.in` / `dinesense123`. Staff terminal header
+Seed logins: `owner|manager|host|cashier|chef@demo.dinesense.in` / `dinesense123`. Staff terminal header
 `x-device-token: sd_demo_floor_terminal_dev_only`; PINs printed by the seed (waiters 1001–1006).
 
 ---
@@ -59,3 +59,39 @@ Demo (two browser windows):
 Automated: `pnpm test` (state machine matrix, API integration incl. concurrency, joins, tenancy, camera dedupe and
 socket delivery). A two-browser Playwright run of steps 2–6 was executed during development; it becomes part of the
 committed e2e suite in M4.
+
+## M3 — Menu, guest QR ordering, approval, KDS (done 2026-11-05)
+
+- Menu manager (dishes with English/Hindi names, veg marks, allergens, spice, GST slab, station, option groups with
+  price changes); sold-out toggle for the kitchen that reaches every guest phone instantly.
+- Guest PWA (`apps/guest`, :3001): table QR → menu (read-only until seated), item options with live price, shared
+  table cart across phones, place order, order tracking with item status, running bill with CGST/SGST, call waiter /
+  water / cutlery / bill. English/Hindi.
+- Orders: QR orders wait for a waiter's approval (configurable); waiter orders go straight to the kitchen.
+- KDS per station: tickets age (amber 8 min, red 15 min); tap an item to cook → ready; **Bump** readies a ticket.
+- Floor drawer shows a table's orders with Approve/Reject and **Served** for ready items; serving the whole first
+  order moves the table to _Served_. Printable QR sheet for all tables.
+
+Demo (four windows: manager, chef, two phones — or a phone and a mobile-sized browser window):
+
+1. `pnpm dev`. Manager → **Floor plan → Table QR codes**: open T3's QR link (or scan it) on **two phones**.
+   Both show the menu with "Please wait to be seated".
+2. Manager: seat **T3** (2 guests). Within ~15 s the phones switch to ordering.
+3. Phone A: **Dal Makhani** → _Full_ is pre-selected, tick _Extra butter_ → **Add to table order**.
+   Phone B's cart button turns to _Cart (1)_ immediately. Phone B adds **Sweet Lassi**.
+4. Phone A: **Cart** shows both lines ("Added by you" on yours), GST split → **Place order** → _Waiting for confirmation_.
+5. Manager's floor: an amber "1 order waiting for approval" card → **Approve** (or type a reason → **Reject**:
+   the phone shows why). The phone flips to _In the kitchen_.
+6. Chef (`chef@demo.dinesense.in`) → **Kitchen → Curry & Rice**: ticket #1 for T3. Tap the dal twice
+   (Cooking → Ready; the phone shows each step). **Kitchen → Bar & Beverages** → **Bump**.
+7. Manager: open T3 → **At table (greet)** (a QR order alone does not count as the greet) → both items show
+   **Served** buttons → tap them: T3 becomes _Served_; the phone shows _Served_ and the running bill.
+8. Phone B: **Bill** → T3 turns _Bill requested_ on the floor. **Water** / **Call waiter** create tasks for the
+   serving waiter (shown in the staff app in M4).
+9. **Menu**: toggle _Sold out_ on a dish → it greys out on the phones without a reload. Edit a dish, add an option group.
+10. Phones: tap **हिं** — the guest UI switches to Hindi, dish names included.
+
+Automated: `pnpm test` covers pricing/availability rules, the full QR → approval → KDS → served → bill loop,
+rejection, approval-off mode, waiter orders, role checks per item move, token separation and session expiry.
+The four-window Playwright run above was executed during development (no page errors); it joins the committed
+e2e suite in M4.

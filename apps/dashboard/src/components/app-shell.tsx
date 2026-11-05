@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, LayoutGrid, LogOut, PencilRuler, Users } from 'lucide-react';
+import { Bell, ChefHat, LayoutGrid, LogOut, PencilRuler, UtensilsCrossed, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { AlertsPanel } from '@/components/alerts-panel';
 import { LocaleToggle } from '@/components/locale-toggle';
-import { Button } from '@/components/ui/button';
+import { Button } from '@dinesense/ui/button';
 import { useLiveOutlet } from '@/lib/live';
 import { useAlerts } from '@/lib/queries';
 import { useSession } from '@/lib/session';
@@ -28,6 +28,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: '/floor', label: t('nav.floor'), icon: LayoutGrid, show: true },
     { href: '/floor/edit', label: t('nav.editor'), icon: PencilRuler, show: can('OWNER', 'MANAGER') },
     { href: '/staff', label: t('nav.staff'), icon: Users, show: can('OWNER', 'MANAGER', 'HOST') },
+    { href: '/menu', label: t('nav.menu'), icon: UtensilsCrossed, show: can('OWNER', 'MANAGER', 'CHEF') },
+    { href: '/kds', label: t('nav.kitchen'), icon: ChefHat, show: can('OWNER', 'MANAGER', 'CHEF') },
   ];
 
   return (

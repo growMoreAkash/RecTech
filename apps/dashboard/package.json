@@ -13,6 +13,7 @@
   "dependencies": {
     "@dinesense/i18n": "workspace:*",
     "@dinesense/shared": "workspace:*",
+    "@dinesense/ui": "workspace:*",
     "@radix-ui/react-dialog": "1.3.1",
     "@tanstack/react-query": "5.106.0",
     "class-variance-authority": "0.7.1",
@@ -21,6 +22,7 @@
     "lucide-react": "1.68.0",
     "next": "15.5.29",
     "next-intl": "4.14.9",
+    "qrcode": "1.5.4",
     "react": "19.2.9",
     "react-dom": "19.2.9",
     "react-konva": "19.2.7",
@@ -32,6 +34,7 @@
     "@next/eslint-plugin-next": "15.5.29",
     "@tailwindcss/postcss": "4.3.4",
     "@types/node": "22.20.5",
+    "@types/qrcode": "1.5.5",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "eslint": "9.39.5",

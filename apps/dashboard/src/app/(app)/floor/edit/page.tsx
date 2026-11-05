@@ -4,10 +4,11 @@ import { TABLE_SHAPES } from '@dinesense/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { type FormEvent, useEffect, useState } from 'react';
 import { ErrorText } from '@/components/error-text';
-import { Button } from '@/components/ui/button';
-import { Field, Input, Select } from '@/components/ui/field';
+import { Button } from '@dinesense/ui/button';
+import { Field, Input, Select } from '@dinesense/ui/field';
 import { api, ApiError } from '@/lib/api';
 import { type DraftTable, newTable, removeTable, toDraft, toggleJoin, toPlan } from '@/lib/editor';
 import { qk, useFloor, useOutletMutation } from '@/lib/queries';
@@ -80,6 +81,9 @@ export default function FloorEditorPage() {
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-xl font-semibold">{t('editor.title')}</h1>
         {dirty ? <span className="text-sm text-amber-700">{t('editor.unsaved')}</span> : null}
+        <Link href="/floor/qr" className="rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
+          {t('qr.link')}
+        </Link>
         <Button
           variant="secondary"
           disabled={!sections.length}

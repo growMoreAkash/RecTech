@@ -1,8 +1,8 @@
 'use client';
 
 import { useFormatter, useTranslations } from 'next-intl';
-import { Button } from '@/components/ui/button';
-import { Sheet } from '@/components/ui/sheet';
+import { Button } from '@dinesense/ui/button';
+import { Sheet } from '@dinesense/ui/sheet';
 import { api } from '@/lib/api';
 import { useFloor, useOutletMutation } from '@/lib/queries';
 import { useSession } from '@/lib/session';

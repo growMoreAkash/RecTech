@@ -5,7 +5,7 @@ import {
   type SelectHTMLAttributes,
   useId,
 } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from './cn';
 
 const control =
   'w-full rounded-md border border-slate-300 bg-white px-3 min-h-10 text-sm shadow-xs disabled:bg-slate-100';

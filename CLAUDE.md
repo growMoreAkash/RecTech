@@ -6,8 +6,9 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 
 - **Plan:** approved 2026-11-05.
 - **Done:** M0 (tooling), M1 (schema, seed, auth, tenancy, RBAC, audit), M2 (state machine, floor map & editor,
-  staff & shifts, Socket.IO, dashboard). Demo scripts: `docs/MILESTONES.md`.
-- **Next milestone:** M3 — menu manager, guest QR app, shared cart, order approval, KDS.
+  staff & shifts, Socket.IO, dashboard), M3 (menu, guest QR app, shared cart, order approval, KDS).
+  Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M4 — staff PWA, web push, billing + GST invoice, alerts centre, audit viewer, e2e suite.
 
 ## How we work
 
@@ -33,10 +34,15 @@ apps/api            NestJS API (only component that changes table state)
   src/floor         floor snapshot, bulk floor-plan save, sections
   src/staff         staff, shifts, check-in sequence, breaks
   src/alerts        alerts list / ack / resolve
-  src/realtime      Socket.IO /rt gateway + RealtimeService.emit
+  src/realtime      Socket.IO /rt gateway (staff + guest tokens) + RealtimeService.emit
+  src/menu          stations, categories, items, modifier groups, availability (guest menu filtering)
+  src/ordering      OrderingService (pricing, QR/waiter orders, approval, KDS flow) + orders/KDS endpoints
+  src/guest         public QR endpoints (/g/*), guest JWT, GuestGuard, rate limits
   test/             integration tests (*.int.ts) against real Postgres + Redis
-apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /staff; react-konva canvases
-  src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor helpers
+apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /floor/qr, /staff, /menu, /kds/[station]
+  src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor/kds helpers
+apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, shared cart, orders, service buttons
+packages/ui         shared TSX primitives (Button, Field, Sheet, VegMark, Money); apps transpile the source
 packages/shared     enums (mirror Prisma), table-machine (pure reducer), zod schemas, realtime contracts, money/GST, time
 packages/i18n       en/hi catalogs (key parity enforced by test)
 packages/config     shared tsconfig + eslint flat config
@@ -74,6 +80,10 @@ infra/              docker-compose.yml, Dockerfiles
 - Dashboard: React is pinned to 19.2.x to match the React that Next 15 vendors (react-konva 19.3 refuses it);
   canvases load via `next/dynamic({ ssr: false })` with a sized placeholder. Every canvas has an accessible list
   equivalent.
+- Guests: prices are always computed server-side (`priceLines`); guest tokens have their own issuer/audience and
+  die when the seating closes; every public `/g/*` route is rate-limited.
+- Snapshots shown back to the API must be stripped of read-only fields (see `toDraft`): request schemas are strict.
+- Plurals in English strings use ICU (`{count, plural, one {…} other {…}}`).
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -84,7 +94,7 @@ docker compose -f infra/docker-compose.yml up -d postgres redis   # or local Pos
 pnpm i
 pnpm --filter @dinesense/api db:migrate    # prisma migrate dev (local dev DB only)
 pnpm --filter @dinesense/api seed          # DESTRUCTIVE: wipes and re-seeds the dev DB (refuses NODE_ENV=production)
-pnpm dev                                   # API :4000 (OpenAPI /api/docs), dashboard http://localhost:3000
+pnpm dev                                   # API :4000 (OpenAPI /api/docs), dashboard :3000, guest :3001
 pnpm lint | pnpm typecheck | pnpm test | pnpm build | pnpm format
 pnpm --filter @dinesense/api test:unit     # no DB needed
 pnpm --filter @dinesense/api test:int      # needs TEST_DATABASE_URL (db name must contain "test")
@@ -94,7 +104,8 @@ Integration tests run `prisma migrate deploy` on the test DB and never delete da
 organization. Drop/recreate `dinesense_test` yourself if it grows.
 
 Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinesense.in` / `dinesense123`;
-staff terminal header `x-device-token: sd_demo_floor_terminal_dev_only`; PINs printed by the seed
+`chef@demo.dinesense.in` (KDS) has the same password; staff terminal header
+`x-device-token: sd_demo_floor_terminal_dev_only`; guest QR links: dashboard → Floor plan → Table QR codes; PINs printed by the seed
 (waiters 1001–1006, bussers 2001–2002).
 
 ## Decisions log
@@ -128,3 +139,12 @@ staff terminal header `x-device-token: sd_demo_floor_terminal_dev_only`; PINs pr
 | 2026-11-05 | M2: only OWNER may grant OWNER/MANAGER; role changes and deactivation revoke sessions                           | Accepted         |
 | 2026-11-05 | M2: shared UI primitives live in the dashboard for now; extract `packages/ui` when guest/staff apps arrive (M3) | Accepted         |
 | 2026-11-05 | M2: Next standalone output; `API_URL` / `NEXT_PUBLIC_API_URL` are build-time values                             | Accepted         |
+| 2026-11-05 | M3: guest JWT (issuer `dinesense-guest`) per device per seating; stored per QR in localStorage                  | Accepted         |
+| 2026-11-05 | M3: QR orders → PENDING_APPROVAL (APPROVE_ORDER task); waiter orders → kitchen and count as greet               | Accepted         |
+| 2026-11-05 | M3: order lines snapshot name, price incl. modifiers, tax rate; daily ticket numbers under an advisory lock     | Accepted         |
+| 2026-11-05 | M3: item flow QUEUED→COOKING→READY (chef) →SERVED (floor), VOID by managers; READY creates a SERVE task         | Accepted         |
+| 2026-11-05 | M3: running bill = per-line GST on accepted, non-void items; service charge/discounts/round-off come in M4      | Accepted         |
+| 2026-11-05 | M3: refresh-token reuse within `REFRESH_REUSE_GRACE_SECONDS` (20 s) continues the session (lost response)       | Accepted         |
+| 2026-11-05 | M3: Express `trust proxy` (`TRUST_PROXY`) so guest rate limits key on the real client IP behind Next            | Accepted         |
+| 2026-11-05 | M3: `packages/ui` extracted (TSX source, `transpilePackages`); Tailwind `@source` scans it                      | Accepted         |
+| 2026-11-05 | M3: chef has a dashboard login (KDS); device-bound KDS screens with PIN come with the staff app in M4           | Accepted         |

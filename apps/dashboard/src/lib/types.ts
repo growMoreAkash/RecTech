@@ -35,6 +35,7 @@ export interface TableLayout {
   h: number;
   rotation: number;
   joinableWith: string[];
+  qrToken: string;
 }
 
 export interface TableLive {
@@ -103,4 +104,100 @@ export interface Alert {
   status: string;
   tableId: string | null;
   createdAt: string;
+}
+
+export interface Station {
+  id: string;
+  code: string;
+  name: { en: string; hi?: string };
+}
+
+export interface Modifier {
+  id: string;
+  name: { en: string; hi?: string };
+  priceDeltaPaise: number;
+  isAvailable: boolean;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: { en: string; hi?: string };
+  minSelect: number;
+  maxSelect: number;
+  modifiers: Modifier[];
+}
+
+export interface MenuCategory {
+  id: string;
+  name: { en: string; hi?: string };
+  sortOrder: number;
+}
+
+export interface MenuItem {
+  id: string;
+  categoryId: string;
+  stationId: string;
+  name: { en: string; hi?: string };
+  description: { en: string; hi?: string } | null;
+  vegType: 'VEG' | 'NON_VEG' | 'EGG';
+  allergens: string[];
+  spiceLevel: number;
+  pricePaise: number;
+  taxRateBps: number;
+  isAvailable: boolean;
+  sortOrder: number;
+  modifierGroups: ModifierGroup[];
+}
+
+export interface Menu {
+  stations: Station[];
+  categories: MenuCategory[];
+  items: MenuItem[];
+  modifierGroups: ModifierGroup[];
+}
+
+export type OrderItemStatus = 'QUEUED' | 'COOKING' | 'READY' | 'SERVED' | 'VOID';
+
+export interface OrderItem {
+  id: string;
+  nameSnapshot: unknown;
+  quantity: number;
+  unitPricePaise: number;
+  modifiers: { name: unknown }[];
+  note: string | null;
+  status: OrderItemStatus;
+}
+
+export interface Order {
+  id: string;
+  number: number;
+  source: 'QR' | 'WAITER';
+  status: 'PENDING_APPROVAL' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED';
+  createdAt: string;
+  rejectedReason: string | null;
+  items: OrderItem[];
+  seating: { id: string; tables: { table: { id: string; label: string } }[] };
+}
+
+export interface KdsTicket {
+  orderId: string;
+  number: number;
+  source: 'QR' | 'WAITER';
+  tables: string[];
+  partySize: number | null;
+  firedAt: string;
+  items: {
+    id: string;
+    name: unknown;
+    quantity: number;
+    modifiers: { name: unknown }[];
+    note: string | null;
+    status: OrderItemStatus;
+    queuedAt: string;
+  }[];
+}
+
+export interface KdsBoard {
+  station: Station;
+  tickets: KdsTicket[];
 }

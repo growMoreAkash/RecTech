@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
-import type { Alert, FloorSnapshot, Shift, StaffMember, Timeline } from './types';
+import type { Alert, FloorSnapshot, KdsBoard, Menu, Order, Shift, StaffMember, Timeline } from './types';
 
 export const qk = {
   outlet: (o: string) => ['outlet', o] as const,
@@ -11,7 +11,33 @@ export const qk = {
   staff: (o: string) => ['outlet', o, 'staff'] as const,
   shifts: (o: string, date: string) => ['outlet', o, 'shifts', date] as const,
   alerts: (o: string) => ['outlet', o, 'alerts'] as const,
+  menu: (o: string) => ['outlet', o, 'menu'] as const,
+  orders: (o: string) => ['outlet', o, 'orders'] as const,
+  kds: (o: string, station: string) => ['outlet', o, 'kds', station] as const,
 };
+
+export const useMenu = (outletId: string) =>
+  useQuery({ queryKey: qk.menu(outletId), queryFn: () => api<Menu>(`/outlets/${outletId}/menu`) });
+
+/** Pending QR orders waiting for a waiter (refetched on order.updated). */
+export const usePendingOrders = (outletId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: [...qk.orders(outletId), 'pending'],
+    queryFn: () => api<Order[]>(`/outlets/${outletId}/orders?status=PENDING_APPROVAL`),
+    enabled,
+  });
+
+export const useTableOrders = (outletId: string, tableId: string) =>
+  useQuery({
+    queryKey: [...qk.orders(outletId), 'table', tableId],
+    queryFn: () => api<Order[]>(`/outlets/${outletId}/tables/${tableId}/orders`),
+  });
+
+export const useKds = (outletId: string, station: string) =>
+  useQuery({
+    queryKey: qk.kds(outletId, station),
+    queryFn: () => api<KdsBoard>(`/outlets/${outletId}/kds?station=${encodeURIComponent(station)}`),
+  });
 
 export const useFloor = (outletId: string) =>
   useQuery({ queryKey: qk.floor(outletId), queryFn: () => api<FloorSnapshot>(`/outlets/${outletId}/floor`) });

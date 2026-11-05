@@ -50,7 +50,9 @@
     "signOut": "Sign out",
     "outlet": "Outlet",
     "language": "Language",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "menu": "Menu",
+    "kitchen": "Kitchen"
   },
   "login": {
     "title": "Sign in to DineSense",
@@ -69,7 +71,12 @@
     "TABLE_INVALID_TRANSITION": "That action isn't possible for this table right now.",
     "TABLE_GUARD_FAILED": "That step isn't complete yet.",
     "INVALID_CREDENTIALS": "Email or password is incorrect.",
-    "RATE_LIMITED": "Too many attempts. Try again later."
+    "RATE_LIMITED": "Too many attempts. Try again later.",
+    "NO_OPEN_SEATING": "This table has no open seating.",
+    "ITEM_UNAVAILABLE": "An item is not available right now.",
+    "INVALID_MODIFIERS": "Some options are not valid.",
+    "CART_EMPTY": "Nothing to order.",
+    "ORDER_NOT_PENDING": "This order was already handled."
   },
   "roles": {
     "OWNER": "Owner",
@@ -231,5 +238,167 @@
     "order": "Rotation #{n}",
     "empty": "No shifts on this day",
     "allSections": "All sections"
+  },
+  "guest": {
+    "scanQr": "Scan the QR code on your table to see the menu and order.",
+    "badQr": "We couldn't find this table. Please ask a staff member.",
+    "thanks": "Thank you for visiting!",
+    "sessionEnded": "This table session has ended. Scan the QR code again on your next visit.",
+    "table": "Table {label}",
+    "categories": "Menu sections",
+    "waitToBeSeated": "Please wait to be seated — you can browse the menu meanwhile. Ordering opens once your table is ready.",
+    "spice": "Spice level {level} of 3",
+    "soldOut": "Sold out",
+    "add": "Add",
+    "myOrders": "My orders",
+    "viewCart": "Cart ({count})",
+    "contains": "Contains: {list}",
+    "allergens": {
+      "gluten": "Gluten",
+      "dairy": "Dairy",
+      "nuts": "Tree nuts",
+      "peanuts": "Peanuts",
+      "egg": "Egg",
+      "soy": "Soy",
+      "fish": "Fish",
+      "shellfish": "Shellfish",
+      "sesame": "Sesame",
+      "mustard": "Mustard"
+    },
+    "required": "Required",
+    "optionalUpTo": "Optional, up to {n}",
+    "noteLabel": "Note for the kitchen",
+    "notePlaceholder": "Less oil, no onion…",
+    "quantity": "Quantity",
+    "less": "One less",
+    "more": "One more",
+    "chooseOptions": "Please choose the required options.",
+    "addToOrder": "Add to table order",
+    "yourTable": "Your table's order",
+    "sharedCartHint": "Everyone at your table adds to this same order.",
+    "cartEmpty": "Nothing here yet. Tap a dish to add it.",
+    "addedByYou": "Added by you",
+    "someUnavailable": "Something in the order is no longer available — please remove it.",
+    "placeOrder": "Place order",
+    "approvalHint": "Your waiter will confirm the order before it goes to the kitchen.",
+    "subtotal": "Subtotal",
+    "cgst": "CGST",
+    "sgst": "SGST",
+    "total": "Total",
+    "noOrders": "No orders yet.",
+    "orderNumber": "Order #{n}",
+    "orderStatus": {
+      "PENDING_APPROVAL": "Waiting for confirmation",
+      "ACCEPTED": "In the kitchen",
+      "REJECTED": "Not accepted",
+      "CANCELLED": "Cancelled",
+      "DONE": "Served"
+    },
+    "itemStatus": {
+      "QUEUED": "Queued",
+      "COOKING": "Cooking",
+      "READY": "Ready",
+      "SERVED": "Served",
+      "VOID": "Cancelled"
+    },
+    "runningBill": "Running bill",
+    "billNote": "Estimate. Service charge and discounts appear on the final bill.",
+    "actions": {
+      "CALL_WAITER": "Call waiter",
+      "WATER": "Water",
+      "CUTLERY": "Cutlery",
+      "BILL": "Bill"
+    },
+    "actionSent": {
+      "CALL_WAITER": "Your waiter has been called.",
+      "WATER": "Water is on its way.",
+      "CUTLERY": "Cutlery is on its way.",
+      "BILL": "Your bill has been requested."
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "network": "No connection. Check your internet and try again.",
+      "NO_OPEN_SEATING": "Ordering isn't open for this table right now.",
+      "ITEM_UNAVAILABLE": "Sorry, that dish isn't available right now.",
+      "INVALID_MODIFIERS": "Please check the options you chose.",
+      "CART_EMPTY": "Add something before placing the order.",
+      "RATE_LIMITED": "Too many requests — please wait a moment.",
+      "VALIDATION_FAILED": "Please check your order.",
+      "UNAUTHENTICATED": "Please scan the table QR code again."
+    }
+  },
+  "kds": {
+    "pickStation": "Choose a kitchen station",
+    "open": "{count, plural, one {# open ticket} other {# open tickets}}",
+    "allClear": "All clear — no open tickets.",
+    "ticket": "Ticket {n}",
+    "bump": "Bump (all ready)"
+  },
+  "menuAdmin": {
+    "title": "Menu",
+    "tabs": {
+      "items": "Dishes",
+      "options": "Option groups"
+    },
+    "categories": "Categories",
+    "newCategory": "New category",
+    "add": "Add",
+    "addItem": "Add dish",
+    "available": "Available",
+    "soldOut": "Sold out",
+    "edit": "Edit",
+    "editItem": "Edit dish",
+    "nameEn": "Name (English)",
+    "nameHi": "Name (Hindi)",
+    "description": "Description",
+    "price": "Price (₹)",
+    "priceInvalid": "Enter a price like 340 or 340.50",
+    "gst": "GST",
+    "diet": "Diet",
+    "spice": "Spice",
+    "notSpicy": "Not spicy",
+    "category": "Category",
+    "station": "Kitchen station",
+    "allergens": "Allergens",
+    "optionGroups": "Option groups",
+    "save": "Save",
+    "remove": "Remove dish",
+    "addGroup": "Add option group",
+    "editGroup": "Edit option group",
+    "picks": "Pick {min}–{max}",
+    "groupName": "Group name",
+    "minPicks": "Minimum picks",
+    "maxPicks": "Maximum picks",
+    "options": "Options (price change in ₹)",
+    "optionName": "Option name",
+    "priceChange": "Price change",
+    "addOption": "Add option"
+  },
+  "orders": {
+    "title": "Orders",
+    "order": "Order #{n}",
+    "source": {
+      "QR": "QR",
+      "WAITER": "Waiter"
+    },
+    "status": {
+      "PENDING_APPROVAL": "Needs approval",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Cancelled"
+    },
+    "served": "Served",
+    "beforeTax": "before tax",
+    "approve": "Approve",
+    "rejectReason": "Reason to reject",
+    "reject": "Reject",
+    "pending": "{count, plural, one {# order} other {# orders}} waiting for approval"
+  },
+  "qr": {
+    "link": "Table QR codes",
+    "title": "Table QR codes",
+    "print": "Print",
+    "alt": "QR code for table {label}",
+    "scan": "Scan to see the menu & order"
   }
 }

@@ -7,8 +7,9 @@ export type DraftTable = FloorTableInput & { key: string };
 export const GRID = 10;
 export const snap = (v: number) => Math.round(v / GRID) * GRID;
 
+/** Editable layout only: live state and the QR token are not part of the floor plan the API accepts. */
 export function toDraft(t: FloorTable): DraftTable {
-  const { live: _live, ...layout } = t;
+  const { live: _live, qrToken: _qr, ...layout } = t;
   return { ...layout, key: t.id };
 }
 

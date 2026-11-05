@@ -6,6 +6,7 @@ const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 const config: NextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['@dinesense/ui'],
   output: 'standalone',
   // Trace workspace packages from the monorepo root so the standalone bundle is self-contained.
   outputFileTracingRoot: path.join(__dirname, '../..'),

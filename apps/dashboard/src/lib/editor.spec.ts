@@ -1,6 +1,7 @@
 import { floorPlanSchema } from '@dinesense/shared';
 import { describe, expect, it } from 'vitest';
-import { type DraftTable, newTable, nextLabel, removeTable, toggleJoin, toPlan } from './editor';
+import { type DraftTable, newTable, nextLabel, removeTable, toDraft, toggleJoin, toPlan } from './editor';
+import type { FloorTable } from './types';
 
 const base = (key: string, label: string): DraftTable => ({
   key,
@@ -34,6 +35,25 @@ describe('floor editor helpers', () => {
   it('drops join references when a table is removed', () => {
     const t = removeTable(toggleJoin([base('a', 'T1'), base('b', 'T2')], 'a', 'b'), 'b');
     expect(t).toEqual([base('a', 'T1')]);
+  });
+
+  it('round-trips a floor snapshot table into a plan the API accepts (no live state or QR token)', () => {
+    const snap = {
+      ...base('t1', 'T1'),
+      id: 't1',
+      qrToken: 'secretish',
+      live: {
+        tableId: 't1',
+        outletId: 'o',
+        status: 'VACANT',
+        version: 0,
+        statusChangedAt: '',
+        seating: null,
+      },
+    } as unknown as FloorTable;
+    const plan = toPlan([toDraft(snap)]);
+    expect(plan.tables[0]).not.toHaveProperty('qrToken');
+    expect(floorPlanSchema.safeParse(plan).success).toBe(true);
   });
 
   it('produces a plan the API schema accepts, new tables without ids', () => {

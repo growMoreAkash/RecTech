@@ -1,7 +1,4 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
+export { cn } from '@dinesense/ui/cn';
 
 /** Re-renders every `ms` and returns the current time (for live timers). */
 export { useNow } from './use-now';

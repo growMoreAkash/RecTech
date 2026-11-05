@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { ErrorText } from '@/components/error-text';
 import { LocaleToggle } from '@/components/locale-toggle';
-import { Button } from '@/components/ui/button';
-import { Field, Input } from '@/components/ui/field';
+import { Button } from '@dinesense/ui/button';
+import { Field, Input } from '@dinesense/ui/field';
 import { login } from '@/lib/api';
 import { formText } from '@/lib/utils';
 

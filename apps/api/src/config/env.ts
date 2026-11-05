@@ -8,6 +8,11 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).default(900),
   REFRESH_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
+  /**
+   * A rotated refresh token presented again within this window is treated as a lost response (navigation, flaky
+   * network) and the session continues. Later reuse is treated as theft and revokes the whole family.
+   */
+  REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).max(300).default(20),
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:3000,http://localhost:3001,http://localhost:3002')

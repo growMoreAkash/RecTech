@@ -73,18 +73,34 @@ export class AuthService {
   }
 
   /**
-   * Rotating refresh. Presenting an already-rotated or revoked token is treated as theft:
-   * the whole token family is revoked and the caller must log in again.
+   * Rotating refresh. Presenting an already-rotated token is treated as theft — the whole family is revoked —
+   * unless it happens within REFRESH_REUSE_GRACE_SECONDS of the rotation: then the previous response was most likely
+   * lost in transit (page navigation, flaky mobile network) and the session simply continues with a fresh pair.
    */
   async refresh(token: string | undefined): Promise<AuthTokens> {
     if (!token) throw invalidRefresh();
     const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash: sha256(token) } });
     if (!row) throw invalidRefresh();
-    if (row.rotatedAt || row.revokedAt) {
+    if (row.revokedAt) {
       await this.revokeFamily(row.familyId);
       throw invalidRefresh();
     }
     if (row.expiresAt <= new Date()) throw invalidRefresh();
+    if (row.rotatedAt) {
+      const graceMs = this.env.REFRESH_REUSE_GRACE_SECONDS * 1000;
+      if (Date.now() - row.rotatedAt.getTime() > graceMs) {
+        await this.revokeFamily(row.familyId);
+        throw invalidRefresh();
+      }
+      const outletId = row.deviceId
+        ? (await this.prisma.staffDevice.findUnique({ where: { id: row.deviceId } }))?.outletId
+        : undefined;
+      return this.issue(row.userId, {
+        familyId: row.familyId,
+        deviceId: row.deviceId ?? undefined,
+        outletId,
+      });
+    }
 
     // Claim the row atomically so two concurrent refreshes cannot both succeed.
     const claimed = await this.prisma.refreshToken.updateMany({

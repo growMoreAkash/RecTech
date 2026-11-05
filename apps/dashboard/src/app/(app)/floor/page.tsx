@@ -6,9 +6,10 @@ import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { ErrorText } from '@/components/error-text';
 import { TableDrawer } from '@/components/floor/table-drawer';
+import { PendingOrders } from '@/components/floor/orders-panel';
 import { TableList } from '@/components/floor/table-list';
 import { StatusBadge } from '@/components/ui/badge';
-import { useFloor } from '@/lib/queries';
+import { useFloor, usePendingOrders } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useNow } from '@/lib/utils';
 
@@ -23,8 +24,9 @@ const SEATED = new Set<TableStatus>(SEATED_STATUSES);
 
 export default function FloorPage() {
   const t = useTranslations('floor');
-  const { outlet } = useSession();
+  const { outlet, can } = useSession();
   const floor = useFloor(outlet.id);
+  const pending = usePendingOrders(outlet.id, can('OWNER', 'MANAGER', 'WAITER', 'HOST'));
   const now = useNow(1000);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -74,14 +76,17 @@ export default function FloorPage() {
             onSelect={setSelectedId}
             labels={{ seats: (n) => t('seats', { count: n }), guests: (n) => t('guests', { count: n }) }}
           />
-          <TableList
-            tables={tables}
-            sections={sections}
-            greetSlaSeconds={greetSlaSeconds}
-            now={now}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          <div className="space-y-4">
+            <PendingOrders orders={pending.data ?? []} />
+            <TableList
+              tables={tables}
+              sections={sections}
+              greetSlaSeconds={greetSlaSeconds}
+              now={now}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          </div>
         </div>
       )}
       <TableDrawer table={selected} floor={floor.data} onClose={() => setSelectedId(null)} />
