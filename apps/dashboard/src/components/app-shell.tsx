@@ -1,6 +1,17 @@
 'use client';
 
-import { Bell, ChefHat, LayoutGrid, LogOut, PencilRuler, UtensilsCrossed, Users } from 'lucide-react';
+import {
+  Bell,
+  ChefHat,
+  History,
+  LayoutGrid,
+  LogOut,
+  PencilRuler,
+  ReceiptIndianRupee,
+  Siren,
+  UtensilsCrossed,
+  Users,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -30,6 +41,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: '/staff', label: t('nav.staff'), icon: Users, show: can('OWNER', 'MANAGER', 'HOST') },
     { href: '/menu', label: t('nav.menu'), icon: UtensilsCrossed, show: can('OWNER', 'MANAGER', 'CHEF') },
     { href: '/kds', label: t('nav.kitchen'), icon: ChefHat, show: can('OWNER', 'MANAGER', 'CHEF') },
+    {
+      href: '/bills',
+      label: t('nav.bills'),
+      icon: ReceiptIndianRupee,
+      show: can('OWNER', 'MANAGER', 'CASHIER'),
+    },
+    { href: '/alerts', label: t('nav.alertsCentre'), icon: Siren, show: can('OWNER', 'MANAGER', 'HOST') },
+    { href: '/audit', label: t('nav.audit'), icon: History, show: can('OWNER', 'MANAGER') },
   ];
 
   return (

@@ -201,3 +201,56 @@ export interface KdsBoard {
   station: Station;
   tickets: KdsTicket[];
 }
+
+export interface BillLine {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPricePaise: number;
+  discountPaise: number;
+  taxableValuePaise: number;
+  taxRateBps: number;
+}
+
+export interface Payment {
+  id: string;
+  method: 'CASH' | 'UPI' | 'CARD' | 'RAZORPAY' | 'OTHER';
+  status: string;
+  amountPaise: number;
+  reference: string | null;
+  capturedAt: string | null;
+}
+
+export interface Bill {
+  id: string;
+  seatingId: string;
+  invoiceNumber: string | null;
+  status: 'OPEN' | 'FINALIZED' | 'PAID' | 'VOID';
+  subtotalPaise: number;
+  discountPaise: number;
+  discountReason: string | null;
+  serviceChargeBps: number;
+  serviceChargePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  roundOffPaise: number;
+  totalPaise: number;
+  paidPaise: number;
+  duePaise: number;
+  createdAt: string;
+  invoiceUrl: string;
+  lines: BillLine[];
+  payments: Payment[];
+}
+
+export interface AuditEntry {
+  id: string;
+  actorType: string;
+  actorId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: unknown;
+  after: unknown;
+  createdAt: string;
+}

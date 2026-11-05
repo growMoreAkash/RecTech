@@ -2,7 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
-import type { Alert, FloorSnapshot, KdsBoard, Menu, Order, Shift, StaffMember, Timeline } from './types';
+import type {
+  Alert,
+  AuditEntry,
+  Bill,
+  FloorSnapshot,
+  KdsBoard,
+  Menu,
+  Order,
+  Shift,
+  StaffMember,
+  Timeline,
+} from './types';
 
 export const qk = {
   outlet: (o: string) => ['outlet', o] as const,
@@ -14,7 +25,35 @@ export const qk = {
   menu: (o: string) => ['outlet', o, 'menu'] as const,
   orders: (o: string) => ['outlet', o, 'orders'] as const,
   kds: (o: string, station: string) => ['outlet', o, 'kds', station] as const,
+  bills: (o: string) => ['outlet', o, 'bills'] as const,
 };
+
+export const useTableBills = (outletId: string, tableId: string) =>
+  useQuery({
+    queryKey: [...qk.bills(outletId), 'table', tableId],
+    queryFn: () => api<Bill[]>(`/outlets/${outletId}/tables/${tableId}/bills`),
+  });
+
+export const useDayBills = (outletId: string, date: string) =>
+  useQuery({
+    queryKey: [...qk.bills(outletId), 'day', date],
+    queryFn: () => api<Bill[]>(`/outlets/${outletId}/bills?date=${date}`),
+  });
+
+export const useAlertHistory = (outletId: string, status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED') =>
+  useQuery({
+    queryKey: [...qk.alerts(outletId), status],
+    queryFn: () => api<Alert[]>(`/outlets/${outletId}/alerts?status=${status}`),
+  });
+
+export const useAuditPage = (outletId: string, cursor: string | null) =>
+  useQuery({
+    queryKey: ['outlet', outletId, 'audit', cursor],
+    queryFn: () =>
+      api<{ items: AuditEntry[]; nextCursor: string | null }>(
+        `/outlets/${outletId}/audit-logs?limit=50${cursor ? `&cursor=${cursor}` : ''}`,
+      ),
+  });
 
 export const useMenu = (outletId: string) =>
   useQuery({ queryKey: qk.menu(outletId), queryFn: () => api<Menu>(`/outlets/${outletId}/menu`) });

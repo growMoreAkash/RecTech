@@ -19,6 +19,7 @@ import { Sheet } from '@dinesense/ui/sheet';
 import { api } from '@/lib/api';
 import { elapsedSince, formatDuration } from '@/lib/floor-style';
 import { useOutletMutation, useTableOrders, useTimeline } from '@/lib/queries';
+import { BillPanel } from './bill-panel';
 import { OrderCard } from './orders-panel';
 import { useSession } from '@/lib/session';
 import type { FloorSnapshot, FloorTable } from '@/lib/types';
@@ -142,6 +143,7 @@ function DrawerBody({ table, floor }: { table: FloorTable; floor: FloorSnapshot 
       <ErrorText error={send.error} />
 
       {seating ? <TableOrders tableId={table.id} /> : null}
+      {seating ? <BillPanel tableId={table.id} /> : null}
 
       {can('OWNER', 'MANAGER') ? (
         <ForceState

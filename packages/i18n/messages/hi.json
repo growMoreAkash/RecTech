@@ -52,7 +52,10 @@
     "language": "भाषा",
     "alerts": "अलर्ट",
     "menu": "मेन्यू",
-    "kitchen": "रसोई"
+    "kitchen": "रसोई",
+    "bills": "बिल",
+    "alertsCentre": "अलर्ट",
+    "audit": "ऑडिट लॉग"
   },
   "login": {
     "title": "DineSense में साइन इन करें",
@@ -70,13 +73,18 @@
     "VERSION_CONFLICT": "किसी और ने अभी यह टेबल बदली है। ताज़ा स्थिति दिखाई गई है।",
     "TABLE_INVALID_TRANSITION": "इस टेबल के लिए अभी यह संभव नहीं है।",
     "TABLE_GUARD_FAILED": "यह चरण अभी पूरा नहीं हुआ है।",
-    "INVALID_CREDENTIALS": "ईमेल या पासवर्ड गलत है।",
+    "INVALID_CREDENTIALS": "पिन या पासवर्ड सही नहीं है।",
     "RATE_LIMITED": "बहुत ज़्यादा कोशिशें। बाद में फिर करें।",
     "NO_OPEN_SEATING": "इस टेबल पर कोई खुली बैठक नहीं है।",
     "ITEM_UNAVAILABLE": "कोई व्यंजन अभी उपलब्ध नहीं है।",
     "INVALID_MODIFIERS": "कुछ विकल्प सही नहीं हैं।",
     "CART_EMPTY": "ऑर्डर के लिए कुछ नहीं है।",
-    "ORDER_NOT_PENDING": "यह ऑर्डर पहले ही संभाला जा चुका है।"
+    "ORDER_NOT_PENDING": "यह ऑर्डर पहले ही संभाला जा चुका है।",
+    "NOTHING_TO_BILL": "अभी बिल के लिए कुछ नहीं है।",
+    "BILL_NOT_EDITABLE": "यह बिल अब बदला नहीं जा सकता।",
+    "DISCOUNT_TOO_LARGE": "छूट बिल से ज़्यादा है।",
+    "OVERPAYMENT": "यह बकाया राशि से ज़्यादा है।",
+    "DEVICE_NOT_REGISTERED": "यह डिवाइस पंजीकृत नहीं है।"
   },
   "roles": {
     "OWNER": "मालिक",
@@ -178,7 +186,18 @@
     "CALL_WAITER": "मेहमान ने वेटर बुलाया",
     "LONG_WAIT": "लंबा इंतज़ार",
     "CAMERA_OFFLINE": "कैमरा बंद",
-    "EDGE_OFFLINE": "एज डिवाइस बंद"
+    "EDGE_OFFLINE": "एज डिवाइस बंद",
+    "centre": "अलर्ट केंद्र",
+    "statuses": {
+      "OPEN": "खुले",
+      "ACKNOWLEDGED": "देखे गए",
+      "RESOLVED": "हल हुए"
+    },
+    "severity": {
+      "INFO": "सूचना",
+      "WARNING": "चेतावनी",
+      "CRITICAL": "गंभीर"
+    }
   },
   "editor": {
     "title": "फ़्लोर प्लान एडिटर",
@@ -412,5 +431,189 @@
     "CLEAN": "टेबल {table} साफ़ करें",
     "APPROVE_ORDER": "टेबल {table} से नया QR ऑर्डर — मंज़ूर करें",
     "alert": "टेबल {table} पर अलर्ट"
+  },
+  "staffApp": {
+    "live": "लाइव",
+    "reconnecting": "फिर से जुड़ रहा है…",
+    "switchUser": "उपयोगकर्ता बदलें",
+    "nav": "भाग",
+    "tabs": {
+      "tasks": "काम",
+      "tables": "टेबल",
+      "clean": "सफ़ाई",
+      "shift": "मेरी शिफ़्ट"
+    },
+    "setup": {
+      "title": "यह डिवाइस सेट करें",
+      "intro": "स्टाफ़ पिन लॉगिन के लिए मैनेजर एक बार साइन इन करके इस फ़ोन या टैबलेट को पंजीकृत करें।",
+      "managerEmail": "मैनेजर ईमेल",
+      "password": "पासवर्ड",
+      "continue": "आगे बढ़ें",
+      "outlet": "आउटलेट",
+      "deviceName": "डिवाइस का नाम",
+      "defaultName": "फ़्लोर फ़ोन",
+      "register": "डिवाइस पंजीकृत करें"
+    },
+    "pin": {
+      "whoAreYou": "आप कौन हैं?",
+      "hello": "नमस्ते {name}, अपना पिन डालें",
+      "pinEntered": "{count} अंक डाले गए",
+      "back": "वापस",
+      "erase": "मिटाएँ",
+      "signIn": "साइन इन"
+    },
+    "tasks": {
+      "title": "मेरे काम",
+      "empty": "सब पूरा — कुछ बाकी नहीं।",
+      "yours": "आपका",
+      "taken": "किसी ने लिया",
+      "unassigned": "कोई भी ले सकता है",
+      "accept": "लें",
+      "openTable": "टेबल खोलें",
+      "type": {
+        "GREET": "टेबल {table} पर स्वागत करें",
+        "CALL_WAITER": "टेबल {table} बुला रही है",
+        "WATER": "टेबल {table} के लिए पानी",
+        "CUTLERY": "टेबल {table} के लिए कटलरी",
+        "BILL": "टेबल {table} का बिल",
+        "SERVE": "टेबल {table} पर परोसें",
+        "CLEAN": "टेबल {table} साफ़ करें",
+        "APPROVE_ORDER": "QR ऑर्डर मंज़ूर करें — टेबल {table}"
+      },
+      "action": {
+        "done": "हो गया",
+        "greet": "टेबल पर पहुँचे (स्वागत)",
+        "clean": "सफ़ाई हो गई",
+        "openTable": "टेबल खोलें"
+      }
+    },
+    "tables": {
+      "mine": "मेरी टेबल",
+      "noneMine": "अभी आपको कोई टेबल नहीं मिली।",
+      "guests": "{count} मेहमान"
+    },
+    "table": {
+      "title": "टेबल {label}",
+      "guests": "{count} मेहमान",
+      "takeOrder": "ऑर्डर लें",
+      "orders": "ऑर्डर",
+      "order": "ऑर्डर #{n}",
+      "orderStatus": {
+        "PENDING_APPROVAL": "मंज़ूरी बाकी",
+        "ACCEPTED": "रसोई में",
+        "REJECTED": "अस्वीकृत",
+        "CANCELLED": "रद्द"
+      },
+      "served": "परोसा",
+      "approve": "मंज़ूर करें",
+      "reject": "अस्वीकार करें",
+      "rejectReason": "कारण",
+      "bill": "बिल",
+      "due": "बकाया:",
+      "printBill": "बिल प्रिंट करें",
+      "cashierHint": "भुगतान कैशियर लेंगे।"
+    },
+    "picker": {
+      "search": "व्यंजन खोजें",
+      "soldOut": "खत्म",
+      "order": "ऑर्डर ({count})",
+      "less": "एक कम",
+      "more": "एक और",
+      "cancel": "रद्द करें",
+      "send": "रसोई भेजें",
+      "note": "रसोई के लिए नोट",
+      "add": "जोड़ें"
+    },
+    "clean": {
+      "title": "साफ़ करने वाली टेबल",
+      "empty": "कुछ साफ़ करना बाकी नहीं।",
+      "cleaned": "सफ़ाई हो गई"
+    },
+    "shift": {
+      "title": "आज की मेरी शिफ़्ट",
+      "none": "आज आपकी कोई शिफ़्ट नहीं है।",
+      "finished": "पूरी हुई",
+      "onBreak": "ब्रेक पर",
+      "onShift": "शिफ़्ट पर",
+      "notStarted": "शुरू नहीं हुई",
+      "rotation": "क्रम #{n}",
+      "checkIn": "चेक इन",
+      "checkOut": "चेक आउट",
+      "startBreak": "ब्रेक शुरू",
+      "endBreak": "ब्रेक खत्म",
+      "alerts": "इस फ़ोन पर अलर्ट",
+      "enablePush": "अलर्ट चालू करें",
+      "push": {
+        "unsupported": "यह ब्राउज़र अलर्ट नहीं दिखा सकता। ऐप खुला रखें।",
+        "disabled": "सर्वर पर अलर्ट अभी सेट नहीं हैं।",
+        "denied": "अलर्ट बंद हैं। ब्राउज़र सेटिंग में नोटिफ़िकेशन की अनुमति दें।",
+        "off": "जब किसी टेबल को आपकी ज़रूरत हो तब सूचना पाएँ।",
+        "on": "इस फ़ोन पर अलर्ट चालू हैं।"
+      }
+    }
+  },
+  "billing": {
+    "title": "बिल",
+    "create": "बिल बनाएँ",
+    "refresh": "बिल अपडेट करें",
+    "draft": "मसौदा बिल",
+    "status": {
+      "OPEN": "खुला",
+      "FINALIZED": "अंतिम — भुगतान बाकी",
+      "PAID": "भुगतान हुआ",
+      "VOID": "रद्द"
+    },
+    "subtotal": "उप-योग",
+    "discount": "छूट",
+    "serviceCharge": "सर्विस चार्ज ({pct}%)",
+    "cgst": "CGST",
+    "sgst": "SGST",
+    "roundOff": "राउंड ऑफ़",
+    "total": "कुल",
+    "paid": "भुगतान",
+    "due": "बकाया",
+    "adjust": "छूट और सर्विस चार्ज",
+    "discountRupees": "छूट ₹",
+    "discountReason": "कारण",
+    "serviceChargePct": "सर्विस चार्ज %",
+    "apply": "लागू करें",
+    "finalize": "बिल अंतिम करें",
+    "method": "तरीका",
+    "methods": {
+      "CASH": "नकद",
+      "UPI": "UPI",
+      "CARD": "कार्ड",
+      "RAZORPAY": "Razorpay",
+      "OTHER": "अन्य"
+    },
+    "amount": "राशि ₹",
+    "reference": "संदर्भ",
+    "recordPayment": "भुगतान दर्ज करें",
+    "printDraft": "मसौदा बिल प्रिंट करें",
+    "printInvoice": "इनवॉइस प्रिंट / साझा करें",
+    "dayTitle": "बिल",
+    "date": "तारीख",
+    "collected": "वसूली",
+    "invoice": "इनवॉइस",
+    "time": "समय",
+    "statusLabel": "स्थिति",
+    "none": "इस दिन कोई बिल नहीं।",
+    "cashDeskOnly": "बिल केवल कैश डेस्क देख सकता है।"
+  },
+  "audit": {
+    "title": "ऑडिट लॉग",
+    "managersOnly": "ऑडिट लॉग केवल मैनेजर देख सकते हैं।",
+    "newer": "नए",
+    "older": "पुराने",
+    "field": "फ़ील्ड",
+    "before": "पहले",
+    "after": "बाद में",
+    "noDetails": "फ़ील्ड का विवरण दर्ज नहीं है।",
+    "actorType": {
+      "USER": "स्टाफ़",
+      "DEVICE": "स्टाफ़ डिवाइस",
+      "SYSTEM": "सिस्टम",
+      "GUEST": "मेहमान"
+    }
   }
 }

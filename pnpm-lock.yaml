@@ -176,7 +176,7 @@ importers:
         version: 15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
@@ -255,7 +255,74 @@ importers:
         version: 15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+      react:
+        specifier: 19.2.9
+        version: 19.2.9
+      react-dom:
+        specifier: 19.2.9
+        version: 19.2.9(react@19.2.9)
+      socket.io-client:
+        specifier: 4.8.4
+        version: 4.8.4
+    devDependencies:
+      '@dinesense/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@next/eslint-plugin-next':
+        specifier: 15.5.29
+        version: 15.5.29
+      '@tailwindcss/postcss':
+        specifier: 4.3.4
+        version: 4.3.4
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.7
+        version: 19.2.7(@types/react@19.2.18)
+      eslint:
+        specifier: 9.39.5
+        version: 9.39.5(jiti@2.7.0)
+      eslint-plugin-react-hooks:
+        specifier: 5.2.0
+        version: 5.2.0(eslint@9.39.5(jiti@2.7.0))
+      tailwindcss:
+        specifier: 4.3.4
+        version: 4.3.4
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 3.2.7
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)
+
+  apps/staff:
+    dependencies:
+      '@dinesense/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
+      '@dinesense/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@dinesense/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@tanstack/react-query':
+        specifier: 5.106.0
+        version: 5.106.0(@types/react@19.2.18)(react@19.2.9)
+      lucide-react:
+        specifier: 1.68.0
+        version: 1.68.0(@types/react@19.2.18)(react@19.2.9)
+      next:
+        specifier: 15.5.29
+        version: 15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
+      next-intl:
+        specifier: 4.14.9
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       react:
         specifier: 19.2.9
         version: 19.2.9
@@ -390,7 +457,7 @@ importers:
         version: 9.39.5(jiti@2.7.0)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       react:
         specifier: 19.2.9
         version: 19.2.9
@@ -7127,7 +7194,7 @@ snapshots:
 
   next-intl-swc-plugin-extractor@4.14.9: {}
 
-  next-intl@4.14.9(@types/react@19.2.18)(next@15.5.29(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9):
+  next-intl@4.14.9(@types/react@19.2.18)(next@15.5.29(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9):
     dependencies:
       '@eloqnt/config': 0.1.1
       '@eloqnt/format-json': 0.1.0

@@ -52,7 +52,10 @@
     "language": "Language",
     "alerts": "Alerts",
     "menu": "Menu",
-    "kitchen": "Kitchen"
+    "kitchen": "Kitchen",
+    "bills": "Bills",
+    "alertsCentre": "Alerts",
+    "audit": "Audit log"
   },
   "login": {
     "title": "Sign in to DineSense",
@@ -70,13 +73,18 @@
     "VERSION_CONFLICT": "Someone else just changed this table. The latest state is shown.",
     "TABLE_INVALID_TRANSITION": "That action isn't possible for this table right now.",
     "TABLE_GUARD_FAILED": "That step isn't complete yet.",
-    "INVALID_CREDENTIALS": "Email or password is incorrect.",
+    "INVALID_CREDENTIALS": "That PIN or password is not right.",
     "RATE_LIMITED": "Too many attempts. Try again later.",
     "NO_OPEN_SEATING": "This table has no open seating.",
     "ITEM_UNAVAILABLE": "An item is not available right now.",
     "INVALID_MODIFIERS": "Some options are not valid.",
     "CART_EMPTY": "Nothing to order.",
-    "ORDER_NOT_PENDING": "This order was already handled."
+    "ORDER_NOT_PENDING": "This order was already handled.",
+    "NOTHING_TO_BILL": "There is nothing to bill yet.",
+    "BILL_NOT_EDITABLE": "This bill can no longer be changed.",
+    "DISCOUNT_TOO_LARGE": "The discount is larger than the bill.",
+    "OVERPAYMENT": "That is more than the amount due.",
+    "DEVICE_NOT_REGISTERED": "This device is not registered."
   },
   "roles": {
     "OWNER": "Owner",
@@ -178,7 +186,18 @@
     "CALL_WAITER": "Guest called a waiter",
     "LONG_WAIT": "Long wait",
     "CAMERA_OFFLINE": "Camera offline",
-    "EDGE_OFFLINE": "Edge device offline"
+    "EDGE_OFFLINE": "Edge device offline",
+    "centre": "Alerts centre",
+    "statuses": {
+      "OPEN": "Open",
+      "ACKNOWLEDGED": "Acknowledged",
+      "RESOLVED": "Resolved"
+    },
+    "severity": {
+      "INFO": "Info",
+      "WARNING": "Warning",
+      "CRITICAL": "Critical"
+    }
   },
   "editor": {
     "title": "Floor plan editor",
@@ -412,5 +431,189 @@
     "CLEAN": "Clean table {table}",
     "APPROVE_ORDER": "New QR order from table {table} — approve it",
     "alert": "Alert at table {table}"
+  },
+  "staffApp": {
+    "live": "Live",
+    "reconnecting": "Reconnecting…",
+    "switchUser": "Switch user",
+    "nav": "Sections",
+    "tabs": {
+      "tasks": "Tasks",
+      "tables": "Tables",
+      "clean": "Clean",
+      "shift": "My shift"
+    },
+    "setup": {
+      "title": "Set up this device",
+      "intro": "A manager signs in once to register this phone or tablet for staff PIN login.",
+      "managerEmail": "Manager email",
+      "password": "Password",
+      "continue": "Continue",
+      "outlet": "Outlet",
+      "deviceName": "Device name",
+      "defaultName": "Floor phone",
+      "register": "Register device"
+    },
+    "pin": {
+      "whoAreYou": "Who are you?",
+      "hello": "Hi {name}, enter your PIN",
+      "pinEntered": "{count} digits entered",
+      "back": "Back",
+      "erase": "Erase",
+      "signIn": "Sign in"
+    },
+    "tasks": {
+      "title": "My tasks",
+      "empty": "All clear — nothing waiting.",
+      "yours": "Yours",
+      "taken": "Taken",
+      "unassigned": "Open for anyone",
+      "accept": "Take it",
+      "openTable": "Open table",
+      "type": {
+        "GREET": "Greet table {table}",
+        "CALL_WAITER": "Table {table} is calling",
+        "WATER": "Water for table {table}",
+        "CUTLERY": "Cutlery for table {table}",
+        "BILL": "Bill for table {table}",
+        "SERVE": "Serve table {table}",
+        "CLEAN": "Clean table {table}",
+        "APPROVE_ORDER": "Approve QR order — table {table}"
+      },
+      "action": {
+        "done": "Done",
+        "greet": "At table (greet)",
+        "clean": "Cleaned",
+        "openTable": "Open table"
+      }
+    },
+    "tables": {
+      "mine": "My tables",
+      "noneMine": "No tables assigned to you yet.",
+      "guests": "{count} guests"
+    },
+    "table": {
+      "title": "Table {label}",
+      "guests": "{count} guests",
+      "takeOrder": "Take order",
+      "orders": "Orders",
+      "order": "Order #{n}",
+      "orderStatus": {
+        "PENDING_APPROVAL": "Needs approval",
+        "ACCEPTED": "In the kitchen",
+        "REJECTED": "Rejected",
+        "CANCELLED": "Cancelled"
+      },
+      "served": "Served",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectReason": "Reason",
+      "bill": "Bill",
+      "due": "Due:",
+      "printBill": "Print bill",
+      "cashierHint": "The cashier collects the payment."
+    },
+    "picker": {
+      "search": "Search dishes",
+      "soldOut": "sold out",
+      "order": "{count, plural, =0 {Order} one {Order (# item)} other {Order (# items)}}",
+      "less": "One less",
+      "more": "One more",
+      "cancel": "Cancel",
+      "send": "Send to kitchen",
+      "note": "Note for the kitchen",
+      "add": "Add"
+    },
+    "clean": {
+      "title": "Tables to clean",
+      "empty": "Nothing to clean.",
+      "cleaned": "Cleaned"
+    },
+    "shift": {
+      "title": "My shift today",
+      "none": "You have no shift today.",
+      "finished": "Finished",
+      "onBreak": "On break",
+      "onShift": "On shift",
+      "notStarted": "Not started",
+      "rotation": "Rotation #{n}",
+      "checkIn": "Check in",
+      "checkOut": "Check out",
+      "startBreak": "Start break",
+      "endBreak": "End break",
+      "alerts": "Alerts on this phone",
+      "enablePush": "Turn on alerts",
+      "push": {
+        "unsupported": "This browser can't show alerts. Keep the app open.",
+        "disabled": "Alerts are not set up on the server yet.",
+        "denied": "Alerts are blocked. Allow notifications in the browser settings.",
+        "off": "Get a buzz when a table needs you.",
+        "on": "Alerts are on for this phone."
+      }
+    }
+  },
+  "billing": {
+    "title": "Bill",
+    "create": "Create bill",
+    "refresh": "Update bill",
+    "draft": "Draft bill",
+    "status": {
+      "OPEN": "Open",
+      "FINALIZED": "Final — unpaid",
+      "PAID": "Paid",
+      "VOID": "Voided"
+    },
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "serviceCharge": "Service charge ({pct}%)",
+    "cgst": "CGST",
+    "sgst": "SGST",
+    "roundOff": "Round off",
+    "total": "Total",
+    "paid": "Paid",
+    "due": "Due",
+    "adjust": "Discount and service charge",
+    "discountRupees": "Discount ₹",
+    "discountReason": "Reason",
+    "serviceChargePct": "Service charge %",
+    "apply": "Apply",
+    "finalize": "Finalise bill",
+    "method": "Method",
+    "methods": {
+      "CASH": "Cash",
+      "UPI": "UPI",
+      "CARD": "Card",
+      "RAZORPAY": "Razorpay",
+      "OTHER": "Other"
+    },
+    "amount": "Amount ₹",
+    "reference": "Reference",
+    "recordPayment": "Record payment",
+    "printDraft": "Print draft bill",
+    "printInvoice": "Print / share invoice",
+    "dayTitle": "Bills",
+    "date": "Date",
+    "collected": "Collected",
+    "invoice": "Invoice",
+    "time": "Time",
+    "statusLabel": "Status",
+    "none": "No bills on this day.",
+    "cashDeskOnly": "Only the cash desk can see bills."
+  },
+  "audit": {
+    "title": "Audit log",
+    "managersOnly": "Only managers can see the audit log.",
+    "newer": "Newer",
+    "older": "Older",
+    "field": "Field",
+    "before": "Before",
+    "after": "After",
+    "noDetails": "No field details recorded.",
+    "actorType": {
+      "USER": "Staff",
+      "DEVICE": "Staff device",
+      "SYSTEM": "System",
+      "GUEST": "Guest"
+    }
   }
 }

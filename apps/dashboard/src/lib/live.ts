@@ -68,6 +68,7 @@ export function useLiveOutlet(outletId: string): boolean {
     socket.on('alert.created', () => void qc.invalidateQueries({ queryKey: qk.alerts(outletId) }));
     socket.on('alert.updated', () => void qc.invalidateQueries({ queryKey: qk.alerts(outletId) }));
     socket.on('order.updated', () => void qc.invalidateQueries({ queryKey: qk.orders(outletId) }));
+    socket.on('bill.updated', () => void qc.invalidateQueries({ queryKey: qk.bills(outletId) }));
     socket.on('kds.changed', (p) => void qc.invalidateQueries({ queryKey: qk.kds(outletId, p.stationCode) }));
     socket.on('menu.changed', () => void qc.invalidateQueries({ queryKey: qk.menu(outletId) }));
     socket.on('menu.availability', () => void qc.invalidateQueries({ queryKey: qk.menu(outletId) }));
