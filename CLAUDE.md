@@ -11,7 +11,7 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
   engine, round-robin assignment, re-assignment, escalation, settings), M6 (edge vision service, signed edge events,
   cameras page with zone calibration, camera health, synthetic dev footage + eval), M7 (split bills, Razorpay
   pay-at-table in test mode, departure/cleaning, reports) — **Phase 2 complete**. Demo scripts: `docs/MILESTONES.md`.
-- **Next:** Phase 3 is out of scope until the owner approves it (PLAN §11 extension points only). Open items: real
+- **Next:** Phase 3 plan drafted in `docs/PLAN-P3.md` (M8–M12) — **awaiting owner approval**; build nothing until then. Open items: real
   footage for vision accuracy; Razorpay test keys + webhook URL for a sandbox run; go-live needs owner approval.
 
 ## How we work
