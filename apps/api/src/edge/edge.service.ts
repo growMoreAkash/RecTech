@@ -15,6 +15,7 @@ import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { TableStateService } from '../table-state/table-state.service';
+import { ReservationsService } from '../reservations/reservations.service';
 import { EdgeCrypto } from './edge-crypto';
 
 /** How long a camera may go without a health report before it is considered offline. */
@@ -31,6 +32,7 @@ export class EdgeService {
     private readonly tables: TableStateService,
     private readonly realtime: RealtimeService,
     private readonly notifier: NotifierService,
+    private readonly reservations: ReservationsService,
   ) {}
 
   /** Everything the device needs to run: cameras (with decrypted stream URLs), zones, thresholds. */
@@ -58,6 +60,7 @@ export class EdgeService {
         enabled: c.enabled,
         snapshotWanted: !c.snapshotAt || (!!c.snapshotRequestedAt && c.snapshotRequestedAt > c.snapshotAt),
         zones: c.zones.map((z) => ({ tableId: z.tableId, polygon: z.polygon as [number, number][] })),
+        door: (c.doorPolygon as [number, number][] | null) ?? null,
       })),
     };
     // Lets the device skip restarting workers when nothing changed.
@@ -143,6 +146,11 @@ export class EdgeService {
       return null;
     }
     if (Date.now() - occurredAt.getTime() > EDGE_MAX_EVENT_AGE_SECONDS * 1000) return 'STALE';
+    if (e.type === 'party.arrived') {
+      if (!camera.doorPolygon) return 'NO_DOOR_ZONE';
+      await this.reservations.recordArrival(camera, e.payload.count, occurredAt);
+      return null;
+    }
     if (!camera.zones.some((z) => z.tableId === e.tableId)) return 'NO_ZONE';
 
     const event: TableMachineEvent =

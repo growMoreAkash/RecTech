@@ -285,3 +285,49 @@ Automated: phone normalisation, local-time helpers, table picking (incl. joins, 
 slots, a 50-run property test that never double-books; integration tests for recognition + visit stats, export/
 erase/retention, the concurrent booking race, manage link (forged token, reschedule, consent history, cancel),
 booking closed, front-desk book/check-in, holds/walk-in alert/no-shows.
+
+## M9 — WhatsApp, waitlist & wait times, door camera (done 2026-11-05)
+
+- **Guest messages**: booking confirmed, booking changed and a reminder (default 2 h before; only for bookings made
+  earlier than that), "you're in line" and "table ready". Sent through **WhatsApp Cloud API** once Meta credentials
+  are set; until then the **console channel** logs each message and the dashboard shows "logged only — WhatsApp not
+  connected yet". Messages are written in the same transaction as the booking/queue change and sent by a
+  dispatcher (one per purpose, retried with backoff, permanent errors fail without retry). Nothing goes to a guest
+  who didn't opt in to WhatsApp; replying **STOP** withdraws the consent. Delivery ticks (sent → delivered → read)
+  come from Meta's signed webhook. Templates to register: `docs/whatsapp-templates.md`.
+- **Digital waitlist**: door QR (Waitlist page → _Door QR_) → `/w/{outlet}`: current wait, name, mobile, party size,
+  opt-ins → a live status page (place in line + ETA range, refreshes itself). Host **Waitlist** page: queue with
+  waiting time, ETA, suggested free table (★), message status; **Table ready** holds the table (Reserved) and
+  messages the guest — their page turns green with the table number and a countdown; **Seat** seats them through the
+  state machine (source _Waitlist_, guest linked); **Remove**; walk-ins without a phone can be added by the host.
+  Holds that run out are released automatically.
+- **Wait-time prediction**: each table's expected free time from its stage (seated/ordered/served/bill/paid/
+  cleaning) and this outlet's median dwell over the last 4 weeks, then the queue is played forward; shown as ranges
+  ("15–25 min"); the quoted wait is stored for accuracy analytics (M12).
+- **Party size at the door (camera)**: draw an _Entrance_ zone on the entrance camera (Cameras → Calibrate). People
+  first seen in the doorway within 2 s of each other form a party → the host sees "Party of ~3 just came in · free
+  now: T6". On synthetic footage (4 seeds): 91 % of parties detected, exact size 65 % (mean error ±0.5 person), no
+  false arrivals — a hint for the host, never an automatic action. Real footage will tell the true numbers.
+
+Demo:
+
+1. Settings → **Waitlist**: tick _Guests can join the waitlist by QR_ → Save. Waitlist page → _Door QR_ → open the
+   link on a phone.
+2. Phone: 3 guests, name, mobile, tick _WhatsApp me when my table is ready_ → **Join the waitlist** → place 1, ETA.
+   The API log shows `WhatsApp(console) → … [ds_waitlist_joined/en] Hi …, you're number 1 …`.
+3. Dashboard → **Waitlist**: the party with ★ suggested table → **Table ready**: the table turns _Reserved_ on the
+   floor, the phone turns green ("Your table is ready! Table T13 · come within 10 min"), the console logs
+   `ds_table_ready`. **Seat** → the table is _Occupied_ and the floor drawer shows the guest.
+4. Seat parties on every table, join again from the phone: the ETA becomes a real range (e.g. 35–55 min).
+5. Bookings: make a booking with WhatsApp ticked → the booking row shows _Confirmation: logged only…_; change its
+   time from the manage link → _Change_.
+6. Door camera: `uv run ds-vision synth --out samples` then `uv run ds-vision eval --detector synthetic --video
+samples/dining-room.mp4 --labels samples/dining-room.labels.csv --zones samples/dining-room.zones.json --arrivals
+samples/dining-room.arrivals.csv` prints the door line; live, add an Entrance zone in Cameras → Calibrate and run
+   `ds-vision run --dev --detector synthetic` — arrivals appear at the top of the Waitlist page.
+
+Automated: wait-time prediction (stages, joins, no head-of-line blocking, ranges); integration tests for consent-
+gated confirmations, dispatch, dedupe, reminders, Meta webhook (verify token, forged signature, status order, STOP),
+the WhatsApp Cloud API request shape and permanent failures against a mock, the waitlist (QR join, duplicate phone,
+ETA in a full room, table ready → hold + message, seat, leave, remove, hold expiry), door arrivals with table
+suggestions; pytest for the arrival grouper, the `party.arrived` contract and synthetic door footage.

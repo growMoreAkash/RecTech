@@ -70,6 +70,17 @@ export function useLiveOutlet(outletId: string): boolean {
     socket.on('order.updated', () => void qc.invalidateQueries({ queryKey: qk.orders(outletId) }));
     socket.on('bill.updated', () => void qc.invalidateQueries({ queryKey: qk.bills(outletId) }));
     socket.on('kds.changed', (p) => void qc.invalidateQueries({ queryKey: qk.kds(outletId, p.stationCode) }));
+    socket.on('waitlist.updated', () => void qc.invalidateQueries({ queryKey: qk.waitlist(outletId) }));
+    socket.on('door.arrival', () => void qc.invalidateQueries({ queryKey: qk.waitlist(outletId) }));
+    socket.on(
+      'message.updated',
+      (p) =>
+        void qc.invalidateQueries({
+          queryKey: p.entityType === 'Reservation' ? qk.reservations(outletId) : qk.waitlist(outletId),
+        }),
+    );
+    // Seating changes move waitlist ETAs.
+    socket.on('table.updated', () => void qc.invalidateQueries({ queryKey: qk.waitlist(outletId) }));
     socket.on(
       'reservation.updated',
       () => void qc.invalidateQueries({ queryKey: qk.reservations(outletId) }),

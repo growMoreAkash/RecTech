@@ -19,6 +19,10 @@ def iou(a: Detection, b: Detection) -> float:
     return inter / union if union > 0 else 0.0
 
 
+def _centre_distance(a: Detection, b: Detection) -> float:
+    return float(((a.x1 + a.x2 - b.x1 - b.x2) ** 2 + (a.y1 + a.y2 - b.y1 - b.y2) ** 2) ** 0.5 / 2)
+
+
 @dataclass
 class Track:
     id: int
@@ -28,10 +32,13 @@ class Track:
 
 
 class IouTracker:
-    def __init__(self, match_iou: float = 0.3, high_confidence: float = 0.5, lost_seconds: float = 2.0) -> None:
+    def __init__(
+        self, match_iou: float = 0.3, high_confidence: float = 0.5, lost_seconds: float = 2.0, max_jump: float = 1.0
+    ) -> None:
         self.match_iou = match_iou
         self.high_confidence = high_confidence
         self.lost_seconds = lost_seconds
+        self.max_jump = max_jump
         self._tracks: list[Track] = []
         self._next_id = 1
 
@@ -56,6 +63,25 @@ class IouTracker:
                 used_t.add(ti)
                 used_d.add(di)
                 t = unmatched[ti]
+                t.detection, t.last_seen, t.hits = group[di], now, t.hits + 1
+                current.append(t)
+            # Fallback for fast movers (walking guests at 3 fps barely overlap between frames): nearest centre within
+            # one body size. Prevents identity switches that would look like new people.
+            near = sorted(
+                (_centre_distance(t.detection, d), ti, di)
+                for ti, t in enumerate(unmatched)
+                if ti not in used_t
+                for di, d in enumerate(group)
+                if di not in used_d
+            )
+            for dist, ti, di in near:
+                t = unmatched[ti]
+                if dist > self.max_jump * max(t.detection.width, t.detection.height):
+                    break
+                if ti in used_t or di in used_d:
+                    continue
+                used_t.add(ti)
+                used_d.add(di)
                 t.detection, t.last_seen, t.hits = group[di], now, t.hits + 1
                 current.append(t)
             unmatched = [t for i, t in enumerate(unmatched) if i not in used_t]

@@ -209,6 +209,54 @@
           },
           "type": {
             "type": "string",
+            "const": "party.arrived"
+          },
+          "cameraId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 60
+              },
+              "trackIds": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 60
+              }
+            },
+            "required": ["count", "trackIds"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["eventId", "occurredAt", "type", "cameraId", "confidence", "payload"],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{8,64}$"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "type": "string",
             "const": "camera.health"
           },
           "cameraId": {

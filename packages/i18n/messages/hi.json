@@ -60,7 +60,8 @@
     "cameras": "कैमरे",
     "reports": "रिपोर्ट",
     "bookings": "बुकिंग",
-    "guests": "मेहमान"
+    "guests": "मेहमान",
+    "waitlist": "कतार"
   },
   "login": {
     "title": "DineSense में साइन इन करें",
@@ -754,7 +755,8 @@
       "turnMedium": "टेबल समय, 3–4 मेहमान (मिनट)",
       "turnLarge": "टेबल समय, 5+ मेहमान (मिनट)",
       "hold": "बुकिंग से पहले टेबल रोकें (मिनट)",
-      "grace": "इतने मिनट देर पर नहीं-आए"
+      "grace": "इतने मिनट देर पर नहीं-आए",
+      "reminder": "बुकिंग से पहले WhatsApp रिमाइंडर (मिनट, 0 = नहीं)"
     },
     "hours": {
       "title": "खुलने का समय और बुकिंग लिंक",
@@ -783,6 +785,13 @@
       "days": "कितने दिन रखें",
       "save": "सेव करें",
       "saved": "सेव हो गया"
+    },
+    "waitlist": {
+      "title": "कतार",
+      "hint": "मेहमान दरवाज़े का QR स्कैन करके कतार में जुड़ते हैं और इंतज़ार देखते हैं। QR कतार पेज से प्रिंट करें।",
+      "enabled": "मेहमान QR से कतार में जुड़ सकते हैं",
+      "hold": "तैयार टेबल कितनी देर रोकें (मिनट)",
+      "maxParty": "QR से जुड़ने वाला सबसे बड़ा समूह"
     }
   },
   "cameras": {
@@ -861,7 +870,8 @@
       "top": "ऊपर %",
       "right": "दायाँ %",
       "bottom": "नीचे %"
-    }
+    },
+    "doorZone": "प्रवेश (समूह का आकार)"
   },
   "reports": {
     "title": "रिपोर्ट",
@@ -1031,5 +1041,90 @@
     "confirmCancel": "यह बुकिंग रद्द करें?",
     "saveChange": "नया समय सेव करें",
     "back": "वापस"
+  },
+  "whatsapp": {
+    "BOOKING_CONFIRMED": "नमस्ते {name}! {outlet} में {party} लोगों के लिए आपकी टेबल {date}, {time} के लिए पक्की है। बदलने या रद्द करने के लिए: {link}",
+    "BOOKING_CHANGED": "नमस्ते {name}, {outlet} में आपकी बुकिंग अब {party} लोगों के लिए {date}, {time} की है। यहाँ देखें: {link}",
+    "BOOKING_REMINDER": "नमस्ते {name}, आज {time} बजे {outlet} में मिलते हैं। देर हो रही है या नहीं आ पाएँगे? {link}",
+    "WAITLIST_JOINED": "नमस्ते {name}, {outlet} की कतार में आपका नंबर {position} है। अनुमानित इंतज़ार: {wait}। लाइव स्थिति: {link}",
+    "TABLE_READY": "{name}, {outlet} में आपकी टेबल {table} तैयार है! कृपया {minutes} मिनट में होस्ट स्टैंड पर आएँ।",
+    "footer": "WhatsApp संदेश बंद करने के लिए STOP लिखें।",
+    "waitMinutes": "{low}–{high} मिनट"
+  },
+  "waitlist": {
+    "title": "कतार",
+    "summary": "{parties, plural, one {# समूह} other {# समूह}} इंतज़ार में · {guests, plural, one {# मेहमान} other {# मेहमान}}",
+    "add": "वॉक-इन जोड़ें",
+    "empty": "कोई इंतज़ार में नहीं है।",
+    "position": "क्रम",
+    "noName": "मेहमान",
+    "regular": "{count, plural, one {पहले # बार} other {पहले # बार}}",
+    "waited": "{minutes} मिनट से इंतज़ार",
+    "eta": "अनुमान {low}–{high} मिनट",
+    "noFit": "कोई टेबल फ़िट नहीं — खुद बैठाएँ",
+    "notified": "बताया गया: टेबल {tables} तैयार",
+    "holdLeft": "{minutes} मिनट और रुकी",
+    "holdOver": "होल्ड ख़त्म",
+    "table": "टेबल",
+    "pickTable": "टेबल…",
+    "ready": "टेबल तैयार",
+    "seat": "बैठाएँ",
+    "remove": "हटाएँ",
+    "confirmRemove": "इस समूह को कतार से हटाएँ?",
+    "name": "नाम",
+    "party": "मेहमान",
+    "phone": "मोबाइल (वैकल्पिक)",
+    "waConsent": "टेबल तैयार होने पर WhatsApp के लिए मेहमान सहमत",
+    "addSubmit": "कतार में जोड़ें",
+    "cancel": "रद्द करें",
+    "qrTitle": "दरवाज़े का QR — मेहमान खुद कतार में जुड़ें",
+    "qrAlt": "कतार में जुड़ने का QR कोड",
+    "qrHint": "प्रिंट करके प्रवेश पर लगाएँ:",
+    "door": {
+      "title": "दरवाज़े पर",
+      "party": "~{count} लोगों का समूह अभी आया",
+      "suggest": "अभी खाली: {tables}",
+      "noTable": "कोई टेबल खाली नहीं — कतार में जोड़ें",
+      "dismiss": "हटाएँ"
+    }
+  },
+  "messages": {
+    "console": "केवल लॉग — WhatsApp अभी जुड़ा नहीं",
+    "purpose": {
+      "BOOKING_CONFIRMED": "पुष्टि",
+      "BOOKING_CHANGED": "बदलाव",
+      "BOOKING_REMINDER": "रिमाइंडर",
+      "WAITLIST_JOINED": "कतार में",
+      "TABLE_READY": "टेबल तैयार"
+    },
+    "status": {
+      "QUEUED": "भेजा जा रहा",
+      "SENT": "भेजा",
+      "DELIVERED": "पहुँचा",
+      "READ": "पढ़ा",
+      "FAILED": "विफल",
+      "SKIPPED": "नहीं भेजा (WhatsApp सहमति नहीं)"
+    }
+  },
+  "queue": {
+    "closed": "अभी कतार खुली नहीं है। कृपया होस्ट से बात करें।",
+    "now": "{count, plural, =0 {अभी कोई इंतज़ार में नहीं} one {# समूह इंतज़ार में} other {# समूह इंतज़ार में}}",
+    "waitRange": "लगभग {low}–{high} मिनट",
+    "askHost": "होस्ट से पूछें",
+    "estimateNote": "अभी की भीड़ के हिसाब से 2 मेहमानों का अनुमान।",
+    "phoneHint": "हम आपकी जगह यहाँ दिखाएँगे, और नीचे सहमति पर WhatsApp करेंगे।",
+    "waConsent": "टेबल तैयार होने पर WhatsApp करें",
+    "join": "कतार में जुड़ें",
+    "yourPlace": "कतार में आपकी जगह",
+    "keepOpen": "यह पेज खुला रखें — यह अपने-आप अपडेट होता है।",
+    "ready": "आपकी टेबल तैयार है!",
+    "table": "टेबल {table}",
+    "comeIn": "कृपया {minutes} मिनट में होस्ट स्टैंड पर आएँ।",
+    "comeInNow": "कृपया अभी होस्ट स्टैंड पर आएँ।",
+    "seated": "आप बैठ गए — भोजन का आनंद लें!",
+    "gone": "आप अब कतार में नहीं हैं।",
+    "partyOf": "{count, plural, one {# मेहमान} other {# मेहमान}} · {name}",
+    "leave": "कतार छोड़ें",
+    "confirmLeave": "कतार छोड़ें?"
   }
 }

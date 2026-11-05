@@ -21,7 +21,7 @@ import {
   type ZonesInput,
   zonesInputSchema,
 } from '@dinesense/shared';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { sha256 } from '../auth/crypto';
 import { Ctx, Managers } from '../auth/decorators';
@@ -48,6 +48,7 @@ const cameraView = (
   lastHealth: c.lastHealth,
   snapshotAt: c.snapshotAt,
   hasSnapshot: c.snapshotAt !== null,
+  door: (c.doorPolygon as [number, number][] | null) ?? null,
   zones: c.zones.map((z) => ({
     id: z.id,
     tableId: z.tableId,
@@ -267,6 +268,11 @@ export class CamerasController {
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.tableZone.deleteMany({ where: { cameraId } });
+      if (body.door !== undefined)
+        await tx.camera.update({
+          where: { id: cameraId },
+          data: { doorPolygon: body.door === null ? Prisma.DbNull : body.door },
+        });
       await tx.tableZone.createMany({
         data: body.zones.map((z) => ({
           organizationId: ctx.user.org,
@@ -284,7 +290,7 @@ export class CamerasController {
           entityType: 'Camera',
           entityId: cameraId,
           outletId,
-          after: { zones: body.zones.length },
+          after: { zones: body.zones.length, ...(body.door !== undefined ? { door: !!body.door } : {}) },
         },
         tx,
       );

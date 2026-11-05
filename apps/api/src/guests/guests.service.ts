@@ -223,6 +223,12 @@ export class GuestsService implements OnModuleInit {
       });
       await tx.reservation.updateMany({ where: { guestId }, data: { notes: null } });
       await tx.seating.updateMany({ where: { guestId }, data: { notes: null } });
+      await tx.waitlistEntry.updateMany({ where: { guestId }, data: { notes: null } });
+      await tx.messageLog.updateMany({ where: { guestId }, data: { toPhone: null, variables: {} } });
+      await tx.messageLog.updateMany({
+        where: { guestId, status: 'QUEUED' },
+        data: { status: 'SKIPPED', error: 'guest data erased' },
+      });
       const erased = await tx.guest.update({
         where: { id: guestId },
         data: {

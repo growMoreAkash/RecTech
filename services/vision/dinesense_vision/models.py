@@ -23,6 +23,8 @@ class CameraConfig(_Model):
     enabled: bool = True
     snapshot_wanted: bool = Field(False, alias="snapshotWanted")
     zones: tuple[Zone, ...] = ()
+    #: Entrance zone (normalised polygon) for party-size estimates; None when this camera doesn't watch the door.
+    door: tuple[tuple[float, float], ...] | None = None
 
 
 class EdgeSettings(_Model):

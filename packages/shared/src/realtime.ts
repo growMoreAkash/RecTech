@@ -127,6 +127,11 @@ export interface BillUpdatedPayload extends Envelope {
 export interface ServerToClientEvents {
   'bill.updated': (p: BillUpdatedPayload) => void;
   'camera.updated': (p: Envelope & { outletId: string; cameraId: string }) => void;
+  'message.updated': (p: Envelope & { outletId: string; entityType: string; entityId: string }) => void;
+  'waitlist.updated': (p: Envelope & { outletId: string; entryId: string; status: string }) => void;
+  'door.arrival': (
+    p: Envelope & { outletId: string; arrivalId: string; count: number; suggestedTableIds: string[] },
+  ) => void;
   'reservation.updated': (p: Envelope & { outletId: string; reservationId: string; status: string }) => void;
   'cart.updated': (p: CartUpdatedPayload) => void;
   'order.updated': (p: OrderUpdatedPayload) => void;

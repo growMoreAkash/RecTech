@@ -10,5 +10,6 @@ import { ReservationsService } from './reservations.service';
   imports: [TableStateModule, GuestsModule],
   controllers: [ReservationsController, BookingController],
   providers: [ReservationsService, ReservationSweepMonitor, RateLimitService],
+  exports: [ReservationsService],
 })
 export class ReservationsModule {}

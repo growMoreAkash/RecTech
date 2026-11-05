@@ -60,7 +60,8 @@
     "cameras": "Cameras",
     "reports": "Reports",
     "bookings": "Bookings",
-    "guests": "Guests"
+    "guests": "Guests",
+    "waitlist": "Waitlist"
   },
   "login": {
     "title": "Sign in to DineSense",
@@ -754,7 +755,8 @@
       "turnMedium": "Table time, 3–4 guests (min)",
       "turnLarge": "Table time, 5+ guests (min)",
       "hold": "Hold the table before a booking (min)",
-      "grace": "No-show after (min late)"
+      "grace": "No-show after (min late)",
+      "reminder": "WhatsApp reminder before a booking (min, 0 = none)"
     },
     "hours": {
       "title": "Opening hours & booking link",
@@ -783,6 +785,13 @@
       "days": "Keep for (days)",
       "save": "Save",
       "saved": "Saved"
+    },
+    "waitlist": {
+      "title": "Waitlist",
+      "hint": "Guests scan the door QR to join the queue and see their wait. Print the QR from the Waitlist page.",
+      "enabled": "Guests can join the waitlist by QR",
+      "hold": "Hold a ready table for (min)",
+      "maxParty": "Largest party that can join by QR"
     }
   },
   "cameras": {
@@ -861,7 +870,8 @@
       "top": "Top %",
       "right": "Right %",
       "bottom": "Bottom %"
-    }
+    },
+    "doorZone": "Entrance (party-size estimate)"
   },
   "reports": {
     "title": "Reports",
@@ -1031,5 +1041,90 @@
     "confirmCancel": "Cancel this booking?",
     "saveChange": "Save new time",
     "back": "Back"
+  },
+  "whatsapp": {
+    "BOOKING_CONFIRMED": "Hi {name}! Your table for {party} at {outlet} is confirmed for {date}, {time}. To change or cancel: {link}",
+    "BOOKING_CHANGED": "Hi {name}, your booking at {outlet} is now for {party} on {date}, {time}. Manage it here: {link}",
+    "BOOKING_REMINDER": "Hi {name}, see you at {outlet} today at {time}. Running late or can't make it? {link}",
+    "WAITLIST_JOINED": "Hi {name}, you're number {position} in line at {outlet}. Expected wait: {wait}. Live status: {link}",
+    "TABLE_READY": "{name}, your table {table} at {outlet} is ready! Please come to the host stand within {minutes} minutes.",
+    "footer": "Reply STOP to stop WhatsApp messages.",
+    "waitMinutes": "{low}–{high} min"
+  },
+  "waitlist": {
+    "title": "Waitlist",
+    "summary": "{parties, plural, one {# party} other {# parties}} waiting · {guests, plural, one {# guest} other {# guests}}",
+    "add": "Add walk-in",
+    "empty": "Nobody is waiting.",
+    "position": "Position",
+    "noName": "Guest",
+    "regular": "{count, plural, one {# visit before} other {# visits before}}",
+    "waited": "waiting {minutes} min",
+    "eta": "ETA {low}–{high} min",
+    "noFit": "no table fits — seat manually",
+    "notified": "Told: table {tables} is ready",
+    "holdLeft": "held {minutes} more min",
+    "holdOver": "hold expired",
+    "table": "Table",
+    "pickTable": "Table…",
+    "ready": "Table ready",
+    "seat": "Seat",
+    "remove": "Remove",
+    "confirmRemove": "Remove this party from the waitlist?",
+    "name": "Name",
+    "party": "Guests",
+    "phone": "Mobile (optional)",
+    "waConsent": "Guest agrees to a WhatsApp when the table is ready",
+    "addSubmit": "Add to waitlist",
+    "cancel": "Cancel",
+    "qrTitle": "Door QR — guests join the queue themselves",
+    "qrAlt": "QR code for joining the waitlist",
+    "qrHint": "Print and stick it at the entrance:",
+    "door": {
+      "title": "At the door",
+      "party": "Party of ~{count} just came in",
+      "suggest": "free now: {tables}",
+      "noTable": "no table free — add to the waitlist",
+      "dismiss": "Dismiss"
+    }
+  },
+  "messages": {
+    "console": "logged only — WhatsApp not connected yet",
+    "purpose": {
+      "BOOKING_CONFIRMED": "Confirmation",
+      "BOOKING_CHANGED": "Change",
+      "BOOKING_REMINDER": "Reminder",
+      "WAITLIST_JOINED": "In line",
+      "TABLE_READY": "Table ready"
+    },
+    "status": {
+      "QUEUED": "sending",
+      "SENT": "sent",
+      "DELIVERED": "delivered",
+      "READ": "read",
+      "FAILED": "failed",
+      "SKIPPED": "not sent (no WhatsApp consent)"
+    }
+  },
+  "queue": {
+    "closed": "The waitlist isn't open right now. Please speak to the host.",
+    "now": "{count, plural, =0 {Nobody waiting right now} one {# party waiting} other {# parties waiting}}",
+    "waitRange": "About {low}–{high} min",
+    "askHost": "Ask the host",
+    "estimateNote": "Estimate for 2 guests from how busy we are right now.",
+    "phoneHint": "We'll show your place here, and WhatsApp you if you agree below.",
+    "waConsent": "WhatsApp me when my table is ready",
+    "join": "Join the waitlist",
+    "yourPlace": "Your place in line",
+    "keepOpen": "Keep this page open — it updates by itself.",
+    "ready": "Your table is ready!",
+    "table": "Table {table}",
+    "comeIn": "Please come to the host stand within {minutes} min.",
+    "comeInNow": "Please come to the host stand now.",
+    "seated": "You're seated — enjoy your meal!",
+    "gone": "You're no longer on the waitlist.",
+    "partyOf": "{count, plural, one {# guest} other {# guests}} · {name}",
+    "leave": "Leave the waitlist",
+    "confirmLeave": "Leave the waitlist?"
   }
 }

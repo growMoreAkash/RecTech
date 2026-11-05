@@ -23,6 +23,8 @@ import {
   zonesBody,
 } from '@/lib/zones';
 
+const DOOR_KEY = '__door';
+
 const ZoneCanvas = dynamic(() => import('@/components/cameras/zone-canvas'), {
   ssr: false,
   loading: () => (
@@ -474,9 +476,14 @@ function Calibrate({ camera, onClose }: { camera: Camera; onClose: () => void })
       ),
     [floor.data],
   );
-  const labels = Object.fromEntries(tables.map((tb) => [tb.id, tb.label]));
+  // The entrance zone is edited like a table zone, under a reserved key.
+  const rows = [{ id: DOOR_KEY, label: t('doorZone') }, ...tables];
+  const labels = Object.fromEntries(rows.map((tb) => [tb.id, tb.label]));
   const initial = () =>
-    Object.fromEntries(camera.zones.map((z) => [z.tableId, z.polygon])) as Record<string, Point[]>;
+    ({
+      ...Object.fromEntries(camera.zones.map((z) => [z.tableId, z.polygon])),
+      ...(camera.door ? { [DOOR_KEY]: camera.door } : {}),
+    }) as Record<string, Point[]>;
   const [zones, setZones] = useState<Record<string, Point[]>>(initial);
   const [dirty, setDirty] = useState(false);
   const [active, setActive] = useState<string | null>(null);
@@ -486,7 +493,7 @@ function Calibrate({ camera, onClose }: { camera: Camera; onClose: () => void })
   const save = useOutletMutation(outlet.id, () =>
     api(`/outlets/${outlet.id}/cameras/${camera.id}/zones`, {
       method: 'PUT',
-      body: zonesBody(zones, new Set(tables.map((tb) => tb.id))),
+      body: { ...zonesBody(zones, new Set(tables.map((tb) => tb.id))), door: zones[DOOR_KEY] ?? null },
     }),
   );
   const snap = useOutletMutation(outlet.id, () =>
@@ -578,7 +585,7 @@ function Calibrate({ camera, onClose }: { camera: Camera; onClose: () => void })
           aria-label={t('tableZones')}
           className="max-h-[75vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white"
         >
-          {tables.map((tb) => {
+          {rows.map((tb) => {
             const poly = zones[tb.id];
             const b = poly ? boundsPercent(poly) : null;
             const isActive = active === tb.id;

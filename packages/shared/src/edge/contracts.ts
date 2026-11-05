@@ -49,6 +49,18 @@ export const edgeEventSchema = z.discriminatedUnion('type', [
   z
     .object({
       ...base,
+      type: z.literal('party.arrived'),
+      cameraId: id,
+      confidence: z.number().min(0).max(1),
+      /** People who crossed the entrance zone together (within a few seconds of each other). */
+      payload: z
+        .object({ count: z.number().int().min(1).max(60), trackIds: z.array(z.number().int()).max(60) })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...base,
       type: z.literal('camera.health'),
       cameraId: id,
       payload: z
@@ -122,7 +134,11 @@ export type CameraInput = z.infer<typeof cameraInputSchema>;
 export const cameraPatchSchema = cameraInputSchema.partial().strict();
 
 export const zonesInputSchema = z
-  .object({ zones: z.array(z.object({ tableId: id, polygon: zonePolygonSchema }).strict()).max(40) })
+  .object({
+    zones: z.array(z.object({ tableId: id, polygon: zonePolygonSchema }).strict()).max(40),
+    /** Entrance zone for party-size estimates (null removes it; omitted keeps it). */
+    door: zonePolygonSchema.nullable().optional(),
+  })
   .strict()
   .refine((z2) => new Set(z2.zones.map((x) => x.tableId)).size === z2.zones.length, {
     message: 'One zone per table per camera',

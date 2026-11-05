@@ -12,10 +12,12 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
   cameras page with zone calibration, camera health, synthetic dev footage + eval), M7 (split bills, Razorpay
   pay-at-table in test mode, departure/cleaning, reports) — **Phase 2 complete**. Phase 3 (`docs/PLAN-P3.md`,
   approved 2026-11-05): M8 (guest profiles + DPDP export/erase/retention, returning-guest recognition, online
-  booking + manage link, table holds, no-shows, bookings/guests pages). Demo scripts: `docs/MILESTONES.md`.
-- **Next milestone:** M9 — WhatsApp (console channel until Meta is wired), booking messages, digital waitlist, wait-time
-  prediction, camera party-size estimate. Open items: real footage for vision accuracy; Razorpay test keys; Meta
-  WhatsApp Business account (paid, owner approved building against the console channel first).
+  booking + manage link, table holds, no-shows, bookings/guests pages), M9 (guest messaging outbox with WhatsApp
+  Cloud API / console channel, booking confirm/change/reminder, digital waitlist with ETAs, door-camera party size).
+  Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M10 — service quality on the floor (idle-table alert, course pacing, prep-time ETAs, mid-meal
+  check-in, dirty-table camera check, tips per waiter). Open items: real footage for vision accuracy; Razorpay test
+  keys; Meta WhatsApp Business account + approved templates (`docs/whatsapp-templates.md`) to switch from console.
 
 ## How we work
 
@@ -54,6 +56,9 @@ apps/api            NestJS API (only component that changes table state)
                     visit stats recomputed on seating close (SeatingEvents hook)
   src/reservations  bookings: availability (pure, in shared), staff + public /b/* endpoints, signed manage links,
                     check-in through the state machine, hold/no-show sweep, opening hours
+  src/messaging     guest message outbox (MessageLog rows queued in the business tx), dispatcher (SKIP LOCKED leases),
+                    WhatsApp Cloud API / console channel, signed Meta webhook (statuses, STOP opt-out)
+  src/waitlist      digital waitlist (QR /w/* + host), ETAs from the pure predictWaits, table-ready holds + message
   src/reports       day report (managers): seatings, greet times, per-waiter SLA, sales by hour, payments
   src/tasks         staff task inbox (accept / done)
   src/notifications NotifierService (socket + web push for every new task/alert), PushService (VAPID)
@@ -61,9 +66,9 @@ apps/api            NestJS API (only component that changes table state)
                     snapshots, /edge/config + /edge/events (dedupe via EdgeEventReceipt), health sweep → alerts
   test/             integration tests (*.int.ts) against real Postgres + Redis
 apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /floor/qr, /staff, /menu, /kds/[station],
-                    /bills, /alerts, /audit, /reports, /bookings, /guests, /cameras, /settings
+                    /bills, /alerts, /audit, /reports, /bookings, /waitlist, /guests, /cameras, /settings
   src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor/kds helpers
-apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, cart, orders, pay; /b/[slug] booking; /b/manage/[token]
+apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, cart, orders, pay; /b/[slug] booking; /b/manage/[token]; /w/[slug] join queue; /w/status/[token]
 apps/staff          Next.js 15 PWA on :3002 — device setup, PIN pad, tasks, tables (take order/approve/serve), clean, shift, push
 e2e/                Playwright full-service test against the built apps (`pnpm e2e`; wipes/seeds dinesense_e2e)
 packages/ui         shared TSX primitives (Button, Field, Sheet, VegMark, Money); apps transpile the source
@@ -132,6 +137,11 @@ gen:edge-schema`; the Python tests validate events against that JSON Schema and 
 - Bookings: availability is the pure `pickTables`/`listSlots` (packages/shared/src/booking, property-tested);
   every booking write takes the `book:{outletId}` advisory lock and re-checks. Online bookings must hit an
   available slot; staff can book any time/table. Public `/b/*` routes are rate-limited per IP and per phone.
+- Messaging: never call a provider from business code — `MessagingService.queue(tx, …)` inside the transaction;
+  one row per purpose + entity (`dedupeKey`). WhatsApp consent is required to queue and re-checked at send time.
+  Template texts live in i18n `whatsapp.*`; variable order in `MESSAGE_VARIABLES`; names `ds_<purpose>`.
+- Waitlist ETAs are ranges from `predictWaits` (packages/shared/src/booking/wait-time.ts): table free-at times from
+  stage + this outlet's 28-day median dwell (fallback: turn times), then the queue played forward.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -231,3 +241,9 @@ Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinese
 | 2026-11-05 | M8: domain-event outbox deferred to M9 (first cross-process consumers); in-process `SeatingEvents` hook for stats    | Accepted         |
 | 2026-11-05 | M8: holds/no-shows via a 30 s idempotent sweep (not per-booking BullMQ jobs); walk-in on held table → alert          | Accepted         |
 | 2026-11-05 | M8: guest manage link = HMAC-signed booking id (no account); consent changes allowed from it                         | Accepted         |
+| 2026-11-05 | M9: messaging outbox = `MessageLog` (queued in tx, dispatched with SKIP LOCKED); general DomainEvent bus → M11       | Accepted         |
+| 2026-11-05 | M9: console channel unless WHATSAPP_ACCESS_TOKEN + PHONE_NUMBER_ID are set (paid Meta service, owner approval)       | Accepted (owner) |
+| 2026-11-05 | M9: utility templates only; STOP reply withdraws WhatsApp consent for that number in every organisation              | Accepted         |
+| 2026-11-05 | M9: waitlist "table ready" holds tables via HOLD_FOR_RESERVATION; expired holds released by the 30 s sweep           | Accepted         |
+| 2026-11-05 | M9: door party = tracks first seen (twice) in the entrance zone within 2 s of each other; host suggestion only       | Accepted         |
+| 2026-11-05 | M9: IoU tracker gains a centre-distance fallback (fast walkers at 3 fps) to avoid identity switches                  | Accepted         |

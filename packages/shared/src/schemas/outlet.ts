@@ -39,6 +39,10 @@ export const outletSettingsSchema = z
     reservationHoldMinutes: z.number().int().min(0).max(180),
     /** A booking not checked in this long after its time becomes a no-show and the table is released. */
     noShowGraceMinutes: z.number().int().min(5).max(120),
+    bookingReminderMinutes: z.number().int().min(0).max(1440),
+    waitlistEnabled: z.boolean(),
+    waitlistHoldMinutes: z.number().int().min(2).max(60),
+    waitlistMaxPartySize: z.number().int().min(1).max(60),
   })
   .strict();
 export type OutletSettingsInput = z.infer<typeof outletSettingsSchema>;
@@ -76,6 +80,10 @@ export const DEFAULT_OUTLET_SETTINGS: OutletSettingsInput = {
   turnLargeMinutes: 120,
   reservationHoldMinutes: 20,
   noShowGraceMinutes: 15,
+  bookingReminderMinutes: 120,
+  waitlistEnabled: false,
+  waitlistHoldMinutes: 10,
+  waitlistMaxPartySize: 10,
 };
 
 export const paginationSchema = z.object({

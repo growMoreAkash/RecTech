@@ -44,6 +44,8 @@ export const publicReservationSchema = z
     notes: notes.optional(),
     sectionId: id.optional(),
     consents: consentInputSchema.default({}),
+    /** Language of the booking page, for messages. */
+    locale: z.enum(['en', 'hi']).default('en'),
   })
   .strict();
 export type PublicReservationInput = z.infer<typeof publicReservationSchema>;

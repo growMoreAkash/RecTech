@@ -73,6 +73,10 @@ export default function SettingsPage() {
         turnLargeMinutes: num('turnLargeMinutes'),
         reservationHoldMinutes: num('reservationHoldMinutes'),
         noShowGraceMinutes: num('noShowGraceMinutes'),
+        bookingReminderMinutes: num('bookingReminderMinutes'),
+        waitlistEnabled: on('waitlistEnabled'),
+        waitlistHoldMinutes: num('waitlistHoldMinutes'),
+        waitlistMaxPartySize: num('waitlistMaxPartySize'),
       },
       { onSuccess: () => setSaved(true) },
     );
@@ -274,6 +278,30 @@ export default function SettingsPage() {
               value={s.noShowGraceMinutes}
               min={5}
               max={120}
+            />
+            <NumberField
+              name="bookingReminderMinutes"
+              label={t('booking.reminder')}
+              value={s.bookingReminderMinutes}
+              min={0}
+              max={1440}
+            />
+          </Section>
+          <Section title={t('waitlist.title')} hint={t('waitlist.hint')}>
+            <Check name="waitlistEnabled" label={t('waitlist.enabled')} defaultChecked={s.waitlistEnabled} />
+            <NumberField
+              name="waitlistHoldMinutes"
+              label={t('waitlist.hold')}
+              value={s.waitlistHoldMinutes}
+              min={2}
+              max={60}
+            />
+            <NumberField
+              name="waitlistMaxPartySize"
+              label={t('waitlist.maxParty')}
+              value={s.waitlistMaxPartySize}
+              min={1}
+              max={60}
             />
           </Section>
           <Section title={t('camera.title')} hint={t('camera.hint')}>

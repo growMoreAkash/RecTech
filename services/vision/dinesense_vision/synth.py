@@ -6,7 +6,8 @@ table) and leave. People are saturated colour blobs that `SyntheticDetector` fin
 detections and false positives are injected so the debounce logic is exercised. Output:
   <name>.mp4            the video
   <name>.labels.csv     table_id,start_s,end_s,state   (ground-truth occupied intervals)
-  <name>.zones.json     {"zones": [{"tableId", "polygon"}]} — the calibration a manager would draw
+  <name>.zones.json     {"zones": [{"tableId", "polygon"}], "door": polygon} — the calibration a manager would draw
+  <name>.arrivals.csv   time_s,size   (ground-truth parties coming through the door)
 """
 
 from __future__ import annotations
@@ -27,6 +28,10 @@ DOOR = (30.0, 330.0)
 FLOOR = (96, 100, 104)
 TABLE = (70, 85, 105)
 WALK_S = 4.0
+#: Members of a party come through the door this far apart (seconds).
+STAGGER_S = 0.8
+#: Entrance zone (normalised) around DOOR, as a manager would draw it on the entrance camera.
+DOOR_ZONE = [[0.0, 0.72], [0.22, 0.72], [0.22, 1.0], [0.0, 1.0]]
 SEATED = (26, 30)  # w, h  → aspect 1.15 (seated)
 STANDING = (16, 48)  # aspect 3.0 (standing)
 
@@ -121,10 +126,14 @@ def render(t: float, parties: list[Party], rng: random.Random, noise: bool = Tru
         for k, seat in enumerate(seats):
             # Standing people are drawn so their lower-body point lands where the seated one would be.
             stand_at = (seat[0], seat[1] - (STANDING[1] - SEATED[1]) * 0.35)
-            if p.arrive <= t < p.seated_from:
-                pos = _lerp(DOOR, stand_at, (t - p.arrive) / WALK_S)
+            start = p.arrive + k * STAGGER_S
+            if p.arrive <= t < start:
+                continue  # still outside, behind the others
+            # Everyone walks at the same pace, so the party stays spread out in single file.
+            if start <= t < start + WALK_S:
+                pos = _lerp(DOOR, stand_at, (t - start) / WALK_S)
                 _blob(img, *pos, STANDING, (p.hue + 7 * k) % 180)
-            elif p.seated_from <= t < p.seated_to:
+            elif start + WALK_S <= t < p.seated_to:
                 if noise and rng.random() < 0.03:
                     continue  # missed detection
                 _blob(img, *seat, SEATED, (p.hue + 7 * k) % 180)
@@ -157,6 +166,11 @@ def generate(out_dir: Path, name: str = "dining-room", seconds: float = 900, fps
         wr.writerow(["table_id", "start_s", "end_s", "state"])
         for p in sorted(parties, key=lambda p: (p.table.id, p.arrive)):
             wr.writerow([p.table.id, f"{p.seated_from:.1f}", f"{p.seated_to:.1f}", "occupied"])
-    zones = {"zones": [{"tableId": t.id, "polygon": t.polygon()} for t in TABLES]}
+    zones = {"zones": [{"tableId": t.id, "polygon": t.polygon()} for t in TABLES], "door": DOOR_ZONE}
+    with (out_dir / f"{name}.arrivals.csv").open("w", newline="") as f:
+        wr = csv.writer(f)
+        wr.writerow(["time_s", "size"])
+        for p in sorted(parties, key=lambda p: p.arrive):
+            wr.writerow([f"{p.arrive:.1f}", p.size])
     (out_dir / f"{name}.zones.json").write_text(json.dumps(zones, indent=2) + "\n")
     return video

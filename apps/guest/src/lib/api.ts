@@ -39,13 +39,19 @@ export async function guestApi<T>(
 }
 
 /** Public booking API (/api/v1/b/*): no session; the manage-link token is the credential. */
-export async function bookingApi<T>(
-  path: string,
-  init: { method?: string; body?: unknown } = {},
-): Promise<T> {
+export function bookingApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  return publicApi<T>(`/b${path}`, init);
+}
+
+/** Public waitlist API (/api/v1/w/*): the status-page token is the credential. */
+export function queueApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  return publicApi<T>(`/w${path}`, init);
+}
+
+async function publicApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`/api/v1/b${path}`, {
+    res = await fetch(`/api/v1${path}`, {
       method: init.method ?? 'GET',
       headers: init.body !== undefined ? { 'content-type': 'application/json' } : {},
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),

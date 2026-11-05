@@ -7,7 +7,9 @@ import { AuditModule } from './audit/audit.module';
 import { BillingModule } from './billing/billing.module';
 import { ReportsModule } from './reports/reports.module';
 import { GuestsModule } from './guests/guests.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { AuthModule } from './auth/auth.module';
 import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
@@ -68,8 +70,10 @@ import { TableStateModule } from './table-state/table-state.module';
     GuestModule,
     BillingModule,
     ReportsModule,
+    MessagingModule,
     GuestsModule,
     ReservationsModule,
+    WaitlistModule,
     EdgeModule,
   ],
   controllers: [HealthController, MeController],

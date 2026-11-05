@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ReservationsModule } from '../reservations/reservations.module';
 import { TableStateModule } from '../table-state/table-state.module';
 import { CamerasController } from './cameras.controller';
 import { EdgeCrypto } from './edge-crypto';
@@ -8,7 +9,7 @@ import { EdgeGuard } from './edge.guard';
 import { EdgeService } from './edge.service';
 
 @Module({
-  imports: [TableStateModule],
+  imports: [TableStateModule, ReservationsModule],
   controllers: [EdgeController, CamerasController],
   providers: [EdgeCrypto, EdgeGuard, EdgeService, EdgeHealthMonitor],
   exports: [EdgeService, EdgeCrypto],

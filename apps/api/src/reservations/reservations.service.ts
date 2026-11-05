@@ -21,6 +21,7 @@ import { type AuditActor, AuditService } from '../audit/audit.service';
 import { AppError } from '../common/app-error';
 import { ENV, type Env } from '../config/env';
 import { upsertGuestByPhone } from '../guests/guest-identity';
+import { guestDateTime, MessagingService, type QueueInput } from '../messaging/messaging.service';
 import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -39,6 +40,7 @@ export interface BookInput {
   tableIds?: string[];
   durationMinutes?: number;
   consents?: ConsentFlags;
+  locale?: 'en' | 'hi';
 }
 
 export function rulesOf(s: OutletSettings): BookingRules {
@@ -69,6 +71,7 @@ export class ReservationsService {
     private readonly tables: TableStateService,
     private readonly realtime: RealtimeService,
     private readonly notifier: NotifierService,
+    private readonly messaging: MessagingService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -239,7 +242,12 @@ export class ReservationsService {
       include: { guest: true },
       orderBy: { startsAt: 'asc' },
     });
-    return rows.map((r) => this.staffView(r));
+    const msgs = await this.messaging.forEntity(
+      organizationId,
+      'Reservation',
+      rows.map((r) => r.id),
+    );
+    return rows.map((r) => ({ ...this.staffView(r), messages: msgs.filter((m) => m.entityId === r.id) }));
   }
 
   staffView(
@@ -343,6 +351,7 @@ export class ReservationsService {
         consents: input.consents,
         source: online ? 'BOOKING_PAGE' : 'STAFF',
         actorId: opts.audit.type === 'USER' ? (opts.audit.id ?? null) : null,
+        locale: input.locale,
       });
       const r = await tx.reservation.create({
         data: {
@@ -371,6 +380,7 @@ export class ReservationsService {
         },
         tx,
       );
+      await this.messaging.queue(tx, this.bookingMessage('BOOKING_CONFIRMED', r, guest, outlet));
       return r;
     });
     this.announce(created);
@@ -495,6 +505,11 @@ export class ReservationsService {
         },
         tx,
       );
+      if (r.startsAt.getTime() !== current.startsAt.getTime() || r.partySize !== current.partySize)
+        await this.messaging.queue(tx, {
+          ...this.bookingMessage('BOOKING_CHANGED', r, r.guest, outlet),
+          dedupeSuffix: `${r.startsAt.getTime()}-${r.partySize}`,
+        });
       return r;
     });
     if (current.heldAt && !moved.heldAt)
@@ -609,14 +624,102 @@ export class ReservationsService {
     return { reservation: this.staffView(updated), tables: out.tables };
   }
 
+  private bookingMessage(
+    purpose: 'BOOKING_CONFIRMED' | 'BOOKING_CHANGED' | 'BOOKING_REMINDER',
+    r: Reservation,
+    guest: QueueInput['guest'] & { name: string | null },
+    outlet: { name: string; timezone: string },
+  ): QueueInput {
+    const when = guestDateTime(r.startsAt, outlet.timezone, guest.locale);
+    return {
+      organizationId: r.organizationId,
+      outletId: r.outletId,
+      guest,
+      purpose,
+      entityType: 'Reservation',
+      entityId: r.id,
+      vars: {
+        name: guest.name ?? '',
+        outlet: outlet.name,
+        party: String(r.partySize),
+        date: when.date,
+        time: when.time,
+        link: this.messaging.link(`/b/manage/${this.manageToken(r.id)}`),
+      },
+    };
+  }
+
+  // ───────── walk-ins at the door ─────────
+
+  /** Best free table(s) right now for a party (no booking due on them within the party's turn time). */
+  async suggestNow(outletId: string, partySize: number, now = new Date()): Promise<string[]> {
+    const settings = await this.prisma.outletSettings.findUniqueOrThrow({ where: { outletId } });
+    const to = new Date(now.getTime() + turnMinutes(partySize, rulesOf(settings).turnMinutes) * 60_000);
+    const ctx = await this.context(this.prisma, outletId, settings, now, to);
+    const free = new Set(ctx.tableRows.filter((t) => t.status === 'VACANT').map((t) => t.id));
+    return (
+      pickTables(
+        ctx.tables.filter((t) => free.has(t.id)),
+        ctx.busy,
+        { partySize, from: now, to, online: false },
+      ) ?? []
+    );
+  }
+
+  /** The entrance camera saw a group arrive: remember it and tell the host where they could sit. */
+  async recordArrival(
+    camera: { id: string; organizationId: string; outletId: string },
+    count: number,
+    at: Date,
+  ) {
+    const suggestedTableIds = await this.suggestNow(camera.outletId, count);
+    const a = await this.prisma.doorArrival.create({
+      data: {
+        organizationId: camera.organizationId,
+        outletId: camera.outletId,
+        cameraId: camera.id,
+        count,
+        at,
+        suggestedTableIds,
+      },
+    });
+    this.realtime.emit(
+      [
+        rooms.role('HOST', camera.outletId),
+        rooms.role('MANAGER', camera.outletId),
+        rooms.role('OWNER', camera.outletId),
+      ],
+      'door.arrival',
+      { outletId: camera.outletId, arrivalId: a.id, count, suggestedTableIds },
+    );
+    return a;
+  }
+
+  recentArrivals(organizationId: string, outletId: string, now = new Date()) {
+    return this.prisma.doorArrival.findMany({
+      where: {
+        organizationId,
+        outletId,
+        dismissedAt: null,
+        at: { gte: new Date(now.getTime() - 15 * 60_000) },
+      },
+      orderBy: { at: 'desc' },
+      take: 10,
+    });
+  }
+
+  async dismissArrival(organizationId: string, outletId: string, id: string) {
+    const r = await this.prisma.doorArrival.updateMany({
+      where: { id, organizationId, outletId },
+      data: { dismissedAt: new Date() },
+    });
+    if (!r.count) throw AppError.notFound('Arrival');
+    return { ok: true };
+  }
+
   // ───────── holds & no-shows ─────────
 
-  private async releaseHolds(
-    organizationId: string,
-    outletId: string,
-    tableIds: string[],
-    reservationId: string,
-  ) {
+  async releaseHolds(organizationId: string, outletId: string, tableIds: string[], reservationId: string) {
     for (const tableId of tableIds) {
       // Another booking may hold the same table right after this one; leave it held then.
       const other = await this.prisma.reservation.findFirst({
@@ -653,8 +756,9 @@ export class ReservationsService {
     const due = await this.prisma.reservation.findMany({
       where: {
         status: 'CONFIRMED',
+        // Wide enough for reminders (up to a day ahead) and late no-shows.
         startsAt: {
-          lte: new Date(now.getTime() + 180 * 60_000),
+          lte: new Date(now.getTime() + 25 * 3600_000),
           gte: new Date(now.getTime() - 180 * 60_000),
         },
       },
@@ -665,6 +769,17 @@ export class ReservationsService {
     for (const r of due) {
       const s = r.outlet.settings;
       if (!s) continue;
+      const remindAt = r.startsAt.getTime() - s.bookingReminderMinutes * 60_000;
+      // Reminder once (dedupe), only for bookings made well before — a booking for tonight made at 7 pm needs none.
+      if (
+        s.bookingReminderMinutes &&
+        now.getTime() >= remindAt &&
+        now < r.startsAt &&
+        r.createdAt.getTime() < remindAt
+      )
+        await this.prisma.$transaction((tx) =>
+          this.messaging.queue(tx, this.bookingMessage('BOOKING_REMINDER', r, r.guest, r.outlet)),
+        );
       const holdFrom = r.startsAt.getTime() - s.reservationHoldMinutes * 60_000;
       const graceEnd = r.startsAt.getTime() + s.noShowGraceMinutes * 60_000;
       if (now.getTime() >= graceEnd) {

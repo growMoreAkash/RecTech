@@ -69,6 +69,23 @@ enum ReservationChannel {
   STAFF
 }
 
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  SEATED
+  LEFT
+  REMOVED
+}
+
 enum SeatingStatus {
   OPEN
   CLOSED
@@ -231,6 +248,8 @@ model Outlet {
   assignments      Assignment[]
   openingHours     OutletHours[]
   reservations     Reservation[]
+  waitlist         WaitlistEntry[]
+  doorArrivals     DoorArrival[]
   tableEvents      TableEvent[]
   tasks            Task[]
   alerts           Alert[]
@@ -279,6 +298,12 @@ model OutletSettings {
   turnLargeMinutes          Int            @default(120)
   reservationHoldMinutes    Int            @default(20)
   noShowGraceMinutes        Int            @default(15)
+  /// WhatsApp reminder this long before a booking (0 = none).
+  bookingReminderMinutes    Int            @default(120)
+  waitlistEnabled           Boolean        @default(false)
+  /// A notified party's table is held this long.
+  waitlistHoldMinutes       Int            @default(10)
+  waitlistMaxPartySize      Int            @default(10)
   updatedAt                 DateTime       @updatedAt
 
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
@@ -500,6 +525,8 @@ model Camera {
   snapshotJpeg        Bytes?
   /// Set from the dashboard; the edge uploads a fresh snapshot on its next config poll.
   snapshotRequestedAt DateTime?
+  /// Entrance zone (normalised polygon) for party-size estimates; null = this camera doesn't watch the door.
+  doorPolygon         Json?
 
   outlet     Outlet      @relation(fields: [outletId], references: [id])
   edgeDevice EdgeDevice  @relation(fields: [edgeDeviceId], references: [id])
@@ -547,6 +574,8 @@ model Guest {
   consentFlags    Json      @default("{}")
   /// "MM-DD"
   birthday        String?
+  /// Language for messages (en | hi), from the page the guest used.
+  locale          String    @default("en")
   notes           String?
   allergies       String?
   /// Visit projection (recomputed when a seating closes).
@@ -560,10 +589,11 @@ model Guest {
   /// Personal data erased (request or retention); the row stays for anonymous aggregates.
   deletedAt       DateTime?
 
-  organization Organization   @relation(fields: [organizationId], references: [id])
+  organization Organization    @relation(fields: [organizationId], references: [id])
   seatings     Seating[]
   consents     GuestConsent[]
   reservations Reservation[]
+  waitlist     WaitlistEntry[]
 
   @@unique([organizationId, phone])
 }
@@ -584,6 +614,88 @@ model GuestConsent {
   guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
 
   @@index([guestId, purpose, createdAt])
+}
+
+/**
+ * Outbound guest messages (WhatsApp, or the console channel in dev). Rows are written in the same transaction as
+ * the business change (outbox) and sent by the dispatcher; one row per purpose + entity (dedupeKey).
+ */
+model MessageLog {
+  id                String        @id @default(cuid())
+  organizationId    String
+  outletId          String
+  guestId           String
+  /// whatsapp | console
+  channel           String
+  /// BOOKING_CONFIRMED | BOOKING_CHANGED | BOOKING_REMINDER | WAITLIST_JOINED | TABLE_READY
+  purpose           String
+  entityType        String
+  entityId          String
+  dedupeKey         String        @unique
+  /// Nulled when the guest's data is erased.
+  toPhone           String?
+  template          String
+  locale            String
+  variables         Json          @default("[]")
+  status            MessageStatus @default(QUEUED)
+  providerMessageId String?       @unique
+  error             String?
+  attempts          Int           @default(0)
+  nextAttemptAt     DateTime      @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @default(now()) @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([entityType, entityId])
+  @@index([guestId])
+}
+
+/// Walk-in queue at the door (QR or host). Position = order of createdAt among WAITING/NOTIFIED entries.
+model WaitlistEntry {
+  id               String         @id @default(cuid())
+  organizationId   String
+  outletId         String
+  guestId          String
+  partySize        Int
+  status           WaitlistStatus @default(WAITING)
+  /// QR | HOST
+  source           String
+  notes            String?
+  /// Wait quoted when joining (minutes, upper bound of the range) — compared with the actual wait in analytics.
+  quotedMinutes    Int?
+  notifiedAt       DateTime?
+  notifiedTableIds String[]
+  holdUntil        DateTime?
+  seatedAt         DateTime?
+  seatingId        String?        @unique
+  closedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  guest  Guest  @relation(fields: [guestId], references: [id])
+
+  @@index([outletId, status, createdAt])
+}
+
+/// A group the entrance camera saw arriving together (party-size estimate for the host).
+model DoorArrival {
+  id                String    @id @default(cuid())
+  organizationId    String
+  outletId          String
+  cameraId          String
+  count             Int
+  at                DateTime
+  suggestedTableIds String[]
+  dismissedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@index([outletId, at])
 }
 
 model OutletHours {

@@ -79,6 +79,11 @@ export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 export const RESERVATION_CHANNELS = ['ONLINE', 'STAFF'] as const;
 export type ReservationChannel = (typeof RESERVATION_CHANNELS)[number];
 
+export const MESSAGE_STATUSES = ['QUEUED', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'SKIPPED'] as const;
+export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
+export const WAITLIST_STATUSES = ['WAITING', 'NOTIFIED', 'SEATED', 'LEFT', 'REMOVED'] as const;
+export type WaitlistStatus = (typeof WAITLIST_STATUSES)[number];
+
 export const PRISMA_ENUMS = {
   Role: ROLES,
   TableStatus: TABLE_STATUSES,
@@ -103,4 +108,6 @@ export const PRISMA_ENUMS = {
   DeviceKind: DEVICE_KINDS,
   ReservationStatus: RESERVATION_STATUSES,
   ReservationChannel: RESERVATION_CHANNELS,
+  MessageStatus: MESSAGE_STATUSES,
+  WaitlistStatus: WAITLIST_STATUSES,
 } as const;

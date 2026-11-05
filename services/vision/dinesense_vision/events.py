@@ -49,6 +49,17 @@ def table_event(
     }
 
 
+def party_arrived(*, camera_id: str, at: float, count: int, track_ids: list[int], confidence: float) -> Event:
+    return {
+        "eventId": uuid7(),
+        "type": "party.arrived",
+        "occurredAt": iso(at),
+        "cameraId": camera_id,
+        "confidence": _conf(confidence),
+        "payload": {"count": max(1, min(60, count)), "trackIds": track_ids[:60]},
+    }
+
+
 def camera_health(
     *,
     camera_id: str,

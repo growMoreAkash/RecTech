@@ -9,15 +9,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .arrivals import ArrivalGrouper
 from .detect import Detection, Detector
 from .detect.base import Frame
-from .events import table_event
+from .events import party_arrived, table_event
 from .models import CameraConfig, EdgeSettings
 from .occupancy import CountChanged, OccupancyTracker, Occupied, Vacated
 from .posture import AspectRatioPosture, PostureEstimator
 from .staff import StaffPresence
 from .track import IouTracker
-from .zones import zone_of
+from .zones import anchor, point_in_polygon, zone_of
 
 
 @dataclass
@@ -41,6 +42,7 @@ class CameraPipeline:
         self.detector = detector
         self.posture = posture or AspectRatioPosture()
         self.min_confidence = min_confidence
+        self.arrivals = ArrivalGrouper()
         self.tracker = IouTracker()
         self.tables = {
             z.table_id: OccupancyTracker(settings.occupancy_confirm_seconds, settings.vacancy_confirm_seconds)
@@ -55,8 +57,24 @@ class CameraPipeline:
         h, w = frame.shape[:2]
         detections = [d for d in self.detector.detect(frame) if d.confidence >= self.min_confidence]
         tracks = self.tracker.update(detections, now)
+        door_events: list[dict[str, Any]] = []
         seated: dict[str, list[float]] = {t: [] for t in self.tables}
         standing: dict[str, list[tuple[int, float]]] = {t: [] for t in self.tables}
+        if self.camera.door:
+            door = self.camera.door
+            for arrival in self.arrivals.update(
+                now,
+                [(tr.id, point_in_polygon(anchor(tr.detection, w, h), door), tr.detection.confidence) for tr in tracks],
+            ):
+                door_events.append(
+                    party_arrived(
+                        camera_id=self.camera.id,
+                        at=arrival.at,
+                        count=arrival.count,
+                        track_ids=list(arrival.track_ids),
+                        confidence=arrival.confidence,
+                    )
+                )
         for tr in tracks:
             table = zone_of(tr.detection, self.camera.zones, w, h)
             if table is None:
@@ -67,6 +85,7 @@ class CameraPipeline:
                 standing[table].append((tr.id, tr.detection.confidence))
 
         result = FrameResult(detections=detections, counts={t: len(c) for t, c in seated.items()})
+        result.events.extend(door_events)
         cam = self.camera.id
         for table, occ in self.tables.items():
             confs = seated[table]

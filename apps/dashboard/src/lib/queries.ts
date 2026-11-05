@@ -10,6 +10,8 @@ import type {
   GuestProfile,
   OpeningWindow,
   Reservation,
+  DoorArrival,
+  WaitlistItem,
   EdgeDevice,
   FloorSnapshot,
   KdsBoard,
@@ -33,12 +35,27 @@ export const qk = {
   bills: (o: string) => ['outlet', o, 'bills'] as const,
   cameras: (o: string) => ['outlet', o, 'cameras'] as const,
   reservations: (o: string) => ['outlet', o, 'reservations'] as const,
+  waitlist: (o: string) => ['outlet', o, 'waitlist'] as const,
 };
 
 export const useReservations = (outletId: string, date: string) =>
   useQuery({
     queryKey: [...qk.reservations(outletId), date],
     queryFn: () => api<Reservation[]>(`/outlets/${outletId}/reservations?date=${date}`),
+  });
+
+export const useWaitlist = (outletId: string) =>
+  useQuery({
+    queryKey: qk.waitlist(outletId),
+    queryFn: () => api<WaitlistItem[]>(`/outlets/${outletId}/waitlist`),
+    // ETAs move with the floor even without events.
+    refetchInterval: 60_000,
+  });
+
+export const useDoorArrivals = (outletId: string) =>
+  useQuery({
+    queryKey: [...qk.waitlist(outletId), 'door'],
+    queryFn: () => api<DoorArrival[]>(`/outlets/${outletId}/door-arrivals`),
   });
 
 export const useHours = (outletId: string) =>

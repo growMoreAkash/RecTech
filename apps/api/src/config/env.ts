@@ -52,6 +52,19 @@ const envSchema = z.object({
   GUEST_RETENTION_SWEEP_SECONDS: z.coerce.number().int().min(0).default(3600),
   /** How often table holds / no-shows for bookings are processed (seconds; 0 disables, tests call sweep()). */
   RESERVATION_SWEEP_SECONDS: z.coerce.number().int().min(0).default(30),
+  /** Public URL of the guest app (links in messages: manage booking, waitlist status). */
+  GUEST_APP_URL: z.string().url().default('http://localhost:3001'),
+  /**
+   * WhatsApp Cloud API (PAID SERVICE: Meta charges per conversation). Without these, messages go to the console
+   * channel (logged and recorded, never sent). Owner approved building against the console channel first.
+   */
+  WHATSAPP_ACCESS_TOKEN: z.string().min(10).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(3).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(8).optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().min(8).optional(),
+  WHATSAPP_API_URL: z.string().url().default('https://graph.facebook.com/v21.0'),
+  /** How often queued guest messages are sent (seconds; 0 disables — tests call dispatch()). */
+  MESSAGE_DISPATCH_SECONDS: z.coerce.number().int().min(0).default(5),
   /**
    * Razorpay (PAID SERVICE: per-transaction fees on live keys). Online payment is off unless all three are set.
    * Use test-mode keys (rzp_test_…) until the owner approves going live.

@@ -53,7 +53,7 @@ def _detector(name: str, model: str, min_conf: float) -> Detector:
 
 
 def _cmd_eval(args: argparse.Namespace) -> int:
-    from .evaluate import evaluate, load_labels, load_zones
+    from .evaluate import evaluate, load_arrivals, load_door, load_labels, load_zones
     from .models import EdgeSettings
     from .sources import iter_video
 
@@ -67,6 +67,8 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         load_zones(Path(args.zones)),
         _detector(args.detector, args.model, args.min_confidence),
         settings,
+        door=load_door(Path(args.zones)),
+        arrivals=load_arrivals(Path(args.arrivals)) if args.arrivals else None,
     )
     print(report.text())
     print(f"(evaluated in {time.monotonic() - started:.1f}s)")
@@ -183,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--video", required=True)
     e.add_argument("--labels", required=True, help="CSV: table_id,start_s,end_s,state")
     e.add_argument("--zones", required=True, help='JSON: {"zones": [{"tableId", "polygon"}]}')
+    e.add_argument("--arrivals", help="CSV: time_s,size (party arrivals at the door, from synth)")
     e.add_argument("--fps", type=float, default=3)
     e.add_argument("--confirm", type=float, default=30)
     e.add_argument("--vacancy", type=float, default=90)

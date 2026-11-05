@@ -130,3 +130,25 @@ export interface GuestBooking {
   canChange: boolean;
   maxPartySize: number;
 }
+
+export interface QueuePage {
+  name: string;
+  address: string | null;
+  slug: string;
+  waitlist: { enabled: boolean; maxPartySize: number };
+  waiting: number;
+  waitForTwo: { low: number; high: number } | null;
+}
+
+export interface QueueStatus {
+  status: 'WAITING' | 'NOTIFIED' | 'SEATED' | 'LEFT' | 'REMOVED';
+  name: string | null;
+  partySize: number;
+  position: number | null;
+  wait: { low: number; high: number } | null;
+  notifiedAt: string | null;
+  holdUntil: string | null;
+  tables: string[];
+  outlet: { name: string; slug: string };
+  joinedAt: string;
+}

@@ -8,6 +8,7 @@ import { AlertTriangle, Globe, Lock, Phone } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { type FormEvent, useState } from 'react';
 import { ErrorText } from '@/components/error-text';
+import { MessageStatus } from '@/components/messages/message-status';
 import { type GuestDraft, GuestFields } from '@/components/guests/guest-fields';
 import { api } from '@/lib/api';
 import { useFloor, useOutletMutation, useReservations } from '@/lib/queries';
@@ -149,6 +150,7 @@ function BookingRow({ r, isToday, canEdit }: { r: Reservation; isToday: boolean;
             </p>
           ) : null}
           {r.notes ? <p className="text-xs text-slate-700">“{r.notes}”</p> : null}
+          <MessageStatus messages={r.messages} />
         </div>
         <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATUS_STYLE[r.status])}>
           {t(`status.${r.status}`)}

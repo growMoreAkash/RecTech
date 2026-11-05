@@ -36,6 +36,36 @@ def load_zones(path: Path) -> tuple[Zone, ...]:
     return tuple(Zone.model_validate(z) for z in data["zones"])
 
 
+def load_door(path: Path) -> tuple[tuple[float, float], ...] | None:
+    door = json.loads(path.read_text()).get("door")
+    return tuple((float(x), float(y)) for x, y in door) if door else None
+
+
+def load_arrivals(path: Path) -> list[tuple[float, int]]:
+    with path.open(newline="") as f:
+        return [(float(r["time_s"]), int(r["size"])) for r in csv.DictReader(f)]
+
+
+@dataclass
+class ArrivalScore:
+    parties: int = 0
+    detected: int = 0
+    exact: int = 0
+    abs_error: int = 0
+    spurious: int = 0
+
+    def text(self) -> str:
+        if not self.parties:
+            return ""
+        return "\n".join(
+            [
+                f"door: parties detected {self.detected}/{self.parties}, exact size {self.exact}/{self.detected or 1}"
+                f" ({self.exact / max(1, self.detected):.0%}), mean |size error| "
+                f"{self.abs_error / max(1, self.detected):.2f}, false arrivals {self.spurious}",
+            ]
+        )
+
+
 def _inside(t: float, intervals: list[Interval]) -> bool:
     return any(a <= t < b for a, b in intervals)
 
@@ -59,6 +89,7 @@ class TableScore:
 class Report:
     tables: dict[str, TableScore]
     events: int
+    arrivals: ArrivalScore = field(default_factory=ArrivalScore)
 
     def _sum(self, attr: str) -> int:
         return sum(int(getattr(s, attr)) for s in self.tables.values())
@@ -96,6 +127,7 @@ class Report:
             f"accuracy (outside debounce windows): {self.adjusted_accuracy:.1%}   target ≥ 95%",
             f"occupied precision / recall:         {self.precision:.1%} / {self.recall:.1%}",
             f"events emitted:                      {self.events}",
+            *([self.arrivals.text()] if self.arrivals.parties else []),
         ]
         return "\n".join(lines)
 
@@ -108,10 +140,19 @@ def evaluate(
     settings: EdgeSettings,
     tolerance_s: float = 10.0,
     min_confidence: float = 0.35,
+    door: tuple[tuple[float, float], ...] | None = None,
+    arrivals: list[tuple[float, int]] | None = None,
 ) -> Report:
     camera = CameraConfig.model_validate(
-        {"id": "eval", "name": "eval", "rtspUrl": "file://eval", "zones": [z.model_dump(by_alias=True) for z in zones]}
+        {
+            "id": "eval",
+            "name": "eval",
+            "rtspUrl": "file://eval",
+            "zones": [z.model_dump(by_alias=True) for z in zones],
+            "door": door,
+        }
     )
+    seen_arrivals: list[tuple[float, int]] = []
     pipe = CameraPipeline(camera, settings, detector, min_confidence=min_confidence)
     scores = {z.table_id: TableScore() for z in zones}
     emitted: dict[str, list[tuple[float, str]]] = defaultdict(list)
@@ -121,6 +162,8 @@ def evaluate(
         t_end = t
         result = pipe.process(frame, t)
         for e in result.events:
+            if e["type"] == "party.arrived":
+                seen_arrivals.append((t, int(e["payload"]["count"])))
             if e["type"] in ("table.occupied", "table.vacated"):
                 emitted[e["tableId"]].append((t, e["type"]))
         n_events += len(result.events)
@@ -169,4 +212,21 @@ def evaluate(
             elif b + settings.vacancy_confirm_seconds + 60 <= t_end:
                 s.missed_events += 1
         s.spurious_events = len(evs) - len(used)
-    return Report(scores, n_events)
+    arrival_score = ArrivalScore()
+    if arrivals:
+        matched: set[int] = set()
+        arrival_score.parties = len(arrivals)
+        for t0, size in arrivals:
+            # Reported once the group is complete: within ~10 s of the first person coming in.
+            match = next(
+                (i for i, (t, _) in enumerate(seen_arrivals) if i not in matched and t0 - 1 <= t <= t0 + 10), None
+            )
+            if match is None:
+                continue
+            matched.add(match)
+            got = seen_arrivals[match][1]
+            arrival_score.detected += 1
+            arrival_score.exact += got == size
+            arrival_score.abs_error += abs(got - size)
+        arrival_score.spurious = len(seen_arrivals) - len(matched)
+    return Report(scores, n_events, arrival_score)

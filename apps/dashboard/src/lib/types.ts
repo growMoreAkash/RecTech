@@ -302,6 +302,8 @@ export interface Camera {
   lastHealth: CameraHealthReport | null;
   snapshotAt: string | null;
   hasSnapshot: boolean;
+  /** Entrance zone for party-size estimates. */
+  door: Point[] | null;
   zones: CameraZone[];
 }
 
@@ -386,6 +388,7 @@ export interface Reservation {
     notes: string | null;
     erased: boolean;
   };
+  messages?: GuestMessage[];
 }
 
 export interface BookingSlot {
@@ -398,4 +401,49 @@ export interface OpeningWindow {
   dayOfWeek: number;
   opens: string;
   closes: string;
+}
+
+export interface GuestMessage {
+  id: string;
+  entityId: string;
+  purpose: string;
+  status: 'QUEUED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'SKIPPED';
+  channel: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface WaitlistItem {
+  id: string;
+  status: 'WAITING' | 'NOTIFIED' | 'SEATED' | 'LEFT' | 'REMOVED';
+  partySize: number;
+  source: 'QR' | 'HOST';
+  notes: string | null;
+  quotedMinutes: number | null;
+  notifiedAt: string | null;
+  notifiedTableIds: string[];
+  holdUntil: string | null;
+  createdAt: string;
+  position: number | null;
+  wait: { low: number; high: number } | null;
+  suggestedTableIds: string[];
+  messages: GuestMessage[];
+  guest: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    phoneMasked: string | null;
+    visits: number;
+    allergies: string | null;
+  };
+}
+
+export interface DoorArrival {
+  id: string;
+  count: number;
+  at: string;
+  suggestedTableIds: string[];
 }

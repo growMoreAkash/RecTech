@@ -3,7 +3,8 @@ import { CONSENT_PURPOSES, type ConsentFlags } from '@dinesense/shared';
 
 type Tx = Prisma.TransactionClient;
 
-export type ConsentSource = 'BOOKING_PAGE' | 'HOST' | 'MANAGE_LINK' | 'STAFF';
+export type ConsentSource =
+  'BOOKING_PAGE' | 'HOST' | 'MANAGE_LINK' | 'STAFF' | 'WAITLIST_PAGE' | 'WHATSAPP_REPLY';
 
 /**
  * Records the consents that changed (append-only history) and returns the new current flags.
@@ -39,7 +40,13 @@ export async function upsertGuestByPhone(
   tx: Tx,
   organizationId: string,
   phone: string,
-  opts: { name?: string; consents?: ConsentFlags; source: ConsentSource; actorId: string | null },
+  opts: {
+    name?: string;
+    consents?: ConsentFlags;
+    source: ConsentSource;
+    actorId: string | null;
+    locale?: string;
+  },
 ) {
   const existing = await tx.guest.findUnique({ where: { organizationId_phone: { organizationId, phone } } });
   const guest =
@@ -48,6 +55,10 @@ export async function upsertGuestByPhone(
         ? existing
         : await tx.guest.update({ where: { id: existing.id }, data: { name: opts.name } })
       : await tx.guest.create({ data: { organizationId, phone, name: opts.name ?? null } });
-  const flags = await applyConsents(tx, guest, opts.consents, opts.source, opts.actorId);
-  return { ...guest, consentFlags: flags as Prisma.JsonValue, isNew: !existing || !!existing.deletedAt };
+  const located =
+    opts.locale && guest.locale !== opts.locale
+      ? await tx.guest.update({ where: { id: guest.id }, data: { locale: opts.locale } })
+      : guest;
+  const flags = await applyConsents(tx, located, opts.consents, opts.source, opts.actorId);
+  return { ...located, consentFlags: flags as Prisma.JsonValue, isNew: !existing || !!existing.deletedAt };
 }
