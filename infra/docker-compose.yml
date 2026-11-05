@@ -1,0 +1,46 @@
+# Local stack. From the repo root:
+#   docker compose -f infra/docker-compose.yml up -d postgres redis     # infra only (run apps with pnpm dev)
+#   docker compose -f infra/docker-compose.yml up -d --build            # everything built so far
+# Later milestones add: dashboard, guest, staff (M2–M4), vision (profile "edge", M6).
+name: dinesense
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dinesense
+    ports: ['5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 10
+
+  api:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    env_file: [../.env]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dinesense
+      REDIS_URL: redis://redis:6379
+    ports: ['4000:4000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
