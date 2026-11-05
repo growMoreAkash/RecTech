@@ -10,6 +10,7 @@ import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
 import { ENV, type Env } from './config/env';
 import { DevicesModule } from './devices/devices.module';
+import { EdgeModule } from './edge/edge.module';
 import { FloorModule } from './floor/floor.module';
 import { GuestModule } from './guest/guest.module';
 import { HealthController } from './health/health.controller';
@@ -63,6 +64,7 @@ import { TableStateModule } from './table-state/table-state.module';
     OrderingModule,
     GuestModule,
     BillingModule,
+    EdgeModule,
   ],
   controllers: [HealthController, MeController],
   providers: [{ provide: APP_FILTER, useClass: ErrorFilter }],

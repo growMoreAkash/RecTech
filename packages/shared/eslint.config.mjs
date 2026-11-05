@@ -1,2 +1,2 @@
 import { base } from '@dinesense/config/eslint';
-export default base(import.meta.dirname);
+export default [{ ignores: ['scripts/**'] }, ...base(import.meta.dirname)];

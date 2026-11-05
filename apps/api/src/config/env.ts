@@ -35,6 +35,15 @@ const envSchema = z.object({
   SLA_RECONCILE_SECONDS: z.coerce.number().int().min(0).default(30),
   /** Redis key prefix for BullMQ queues (separate apps/tests sharing a Redis). */
   BULLMQ_PREFIX: z.string().default('dinesense'),
+  /** Derives each edge device's HMAC secret (≥32 chars). Defaults to a key derived from JWT_ACCESS_SECRET in dev. */
+  EDGE_SECRET_KEY: z.string().min(32).optional(),
+  /** AES-256-GCM key for camera RTSP URLs at rest: 32 bytes, base64. Defaults to a JWT-derived key in dev. */
+  CAMERA_SECRET_KEY: z
+    .string()
+    .refine((v) => Buffer.from(v, 'base64').length === 32, 'CAMERA_SECRET_KEY must be 32 bytes, base64')
+    .optional(),
+  /** Camera/edge offline sweep interval (seconds; 0 disables). */
+  EDGE_HEALTH_SWEEP_SECONDS: z.coerce.number().int().min(0).default(30),
   /** Web Push (VAPID). Push is disabled when the keys are absent; sockets still work. */
   VAPID_PUBLIC_KEY: z.string().min(20).optional(),
   VAPID_PRIVATE_KEY: z.string().min(20).optional(),

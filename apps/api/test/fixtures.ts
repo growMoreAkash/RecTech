@@ -17,7 +17,7 @@ export async function createApp(
   let builder = Test.createTestingModule({ imports: [AppModule] });
   if (opts.pushSender) builder = builder.overrideProvider(PUSH_SENDER).useValue(opts.pushSender);
   const mod = await builder.compile();
-  const app = configureApp(mod.createNestApplication({ logger: false }));
+  const app = configureApp(mod.createNestApplication({ logger: false, rawBody: true }));
   await app.init();
   return { app, prisma: app.get(PrismaService) };
 }

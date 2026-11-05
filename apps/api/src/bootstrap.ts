@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { Logger } from 'nestjs-pino';
@@ -9,6 +10,8 @@ export function configureApp(app: INestApplication): INestApplication {
   const env = app.get<Env>(ENV);
   app.useLogger(app.get(Logger));
   app.use(cookieParser());
+  // Edge snapshots arrive as raw JPEG bytes (signed over the exact bytes).
+  (app as NestExpressApplication).useBodyParser('raw', { type: 'image/jpeg', limit: '3mb' });
   (app.getHttpAdapter().getInstance() as { set: (k: string, v: unknown) => void }).set(
     'trust proxy',
     env.TRUST_PROXY,

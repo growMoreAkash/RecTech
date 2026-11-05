@@ -10,8 +10,16 @@ export default async function setup(): Promise<void> {
   const url = process.env.DATABASE_URL!;
   if (!/test/.test(url))
     throw new Error(`Refusing to run integration tests against a non-test database: ${url}`);
-  execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
-    stdio: 'pipe',
-    env: { ...process.env, DATABASE_URL: url },
-  });
+  try {
+    execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
+      stdio: 'pipe',
+      env: { ...process.env, DATABASE_URL: url },
+    });
+  } catch (e) {
+    // Surface Prisma's own message instead of a bare "Command failed".
+    const err = e as { stdout?: Buffer; stderr?: Buffer };
+    throw new Error(
+      `prisma migrate deploy failed:\n${err.stdout?.toString() ?? ''}\n${err.stderr?.toString() ?? ''}`,
+    );
+  }
 }

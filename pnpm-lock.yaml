@@ -179,7 +179,7 @@ importers:
         version: 15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
@@ -258,7 +258,7 @@ importers:
         version: 15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       react:
         specifier: 19.2.9
         version: 19.2.9
@@ -325,7 +325,7 @@ importers:
         version: 15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       react:
         specifier: 19.2.9
         version: 19.2.9
@@ -445,6 +445,9 @@ importers:
       vitest:
         specifier: 3.2.7
         version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)
+      zod-to-json-schema:
+        specifier: 3.25.2
+        version: 3.25.2(zod@3.25.76)
 
   packages/ui:
     dependencies:
@@ -478,7 +481,7 @@ importers:
         version: 9.39.5(jiti@2.7.0)
       next-intl:
         specifier: 4.14.9
-        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
+        version: 4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9)
       react:
         specifier: 19.2.9
         version: 19.2.9
@@ -7349,7 +7352,7 @@ snapshots:
 
   next-intl-swc-plugin-extractor@4.14.9: {}
 
-  next-intl@4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9):
+  next-intl@4.14.9(@types/react@19.2.18)(next@15.5.29(@playwright/test@1.63.0)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react@19.2.9):
     dependencies:
       '@eloqnt/config': 0.1.1
       '@eloqnt/format-json': 0.1.0

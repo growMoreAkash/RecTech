@@ -12,3 +12,4 @@ export * from './schemas/menu';
 export * from './billing';
 export * from './schemas/staff-app';
 export * from './assignment';
+export * from './edge';

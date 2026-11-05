@@ -122,6 +122,7 @@ export interface BillUpdatedPayload extends Envelope {
 /** Server → client events and their payloads. */
 export interface ServerToClientEvents {
   'bill.updated': (p: BillUpdatedPayload) => void;
+  'camera.updated': (p: Envelope & { outletId: string; cameraId: string }) => void;
   'cart.updated': (p: CartUpdatedPayload) => void;
   'order.updated': (p: OrderUpdatedPayload) => void;
   'kds.changed': (p: KdsChangedPayload) => void;

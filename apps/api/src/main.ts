@@ -7,7 +7,7 @@ import { configureApp } from './bootstrap';
 import { ENV, type Env } from './config/env';
 
 async function main(): Promise<void> {
-  const app = configureApp(await NestFactory.create(AppModule, { bufferLogs: true }));
+  const app = configureApp(await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true }));
   await app.listen(app.get<Env>(ENV).PORT);
 }
 

@@ -6,7 +6,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { PushService } from './push.service';
 
-const PUSHED_ALERTS = new Set<string>(['NO_ELIGIBLE_WAITER', 'ESCALATION', 'LEFT_WITHOUT_PAYING']);
+const PUSHED_ALERTS = new Set<string>([
+  'NO_ELIGIBLE_WAITER',
+  'ESCALATION',
+  'LEFT_WITHOUT_PAYING',
+  'CAMERA_OFFLINE',
+  'EDGE_OFFLINE',
+]);
 
 const fill = (s: string, vars: Record<string, string>) =>
   s.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');

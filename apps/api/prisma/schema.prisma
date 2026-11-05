@@ -447,21 +447,25 @@ model EdgeDevice {
 }
 
 model Camera {
-  id               String    @id @default(cuid())
-  organizationId   String
-  outletId         String
-  edgeDeviceId     String
-  name             String
+  id                  String    @id @default(cuid())
+  organizationId      String
+  outletId            String
+  edgeDeviceId        String
+  name                String
   /// AES-256-GCM with CAMERA_SECRET_KEY; never returned to browsers.
-  rtspUrlEncrypted String
-  fps              Int       @default(3)
-  enabled          Boolean   @default(true)
-  healthy          Boolean   @default(false)
-  lastHealthAt     DateTime?
-  lastHealth       Json?
-  /// Blurred calibration snapshot location.
-  snapshotKey      String?
-  snapshotAt       DateTime?
+  rtspUrlEncrypted    String
+  fps                 Int       @default(3)
+  enabled             Boolean   @default(true)
+  healthy             Boolean   @default(false)
+  lastHealthAt        DateTime?
+  lastHealth          Json?
+  /// Blurred calibration snapshot location (unused: snapshots are stored inline below).
+  snapshotKey         String?
+  snapshotAt          DateTime?
+  /// Latest calibration snapshot (JPEG, faces/heads blurred on the edge). One small image per camera.
+  snapshotJpeg        Bytes?
+  /// Set from the dashboard; the edge uploads a fresh snapshot on its next config poll.
+  snapshotRequestedAt DateTime?
 
   outlet     Outlet      @relation(fields: [outletId], references: [id])
   edgeDevice EdgeDevice  @relation(fields: [edgeDeviceId], references: [id])
