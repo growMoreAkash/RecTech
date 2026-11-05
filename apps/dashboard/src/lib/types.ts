@@ -11,6 +11,8 @@ export interface Outlet {
   id: string;
   name: string;
   timezone: string;
+  /** Public booking page path segment: /b/{slug}. */
+  slug: string;
 }
 
 export interface Section {
@@ -35,6 +37,7 @@ export interface TableLayout {
   h: number;
   rotation: number;
   joinableWith: string[];
+  onlineBookable: boolean;
   qrToken: string;
 }
 
@@ -339,4 +342,60 @@ export interface DayReport {
   salesByHour: { hour: number; bills: number; totalPaise: number }[];
   payments: { method: Payment['method']; count: number; amountPaise: number }[];
   sales: { bills: number; totalPaise: number; avgBillPaise: number | null };
+}
+
+export type ConsentFlags = Partial<Record<'WHATSAPP' | 'FEEDBACK' | 'MARKETING', boolean>>;
+
+export interface GuestProfile {
+  id: string;
+  phone: string | null;
+  phoneMasked: string | null;
+  name: string | null;
+  birthday: string | null;
+  notes: string | null;
+  allergies: string | null;
+  consents: ConsentFlags;
+  visits: number;
+  lastVisitAt: string | null;
+  totalSpendPaise: number;
+  favourites: { name: string; count: number }[];
+  erased: boolean;
+  createdAt: string;
+  upcoming: { id: string; outletId: string; startsAt: string; partySize: number; tableIds: string[] }[];
+}
+
+export interface Reservation {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  partySize: number;
+  status: 'CONFIRMED' | 'SEATED' | 'CANCELLED' | 'NO_SHOW';
+  channel: 'ONLINE' | 'STAFF';
+  tableIds: string[];
+  sectionId: string | null;
+  notes: string | null;
+  heldAt: string | null;
+  seatingId: string | null;
+  guest: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    phoneMasked: string | null;
+    visits: number;
+    allergies: string | null;
+    notes: string | null;
+    erased: boolean;
+  };
+}
+
+export interface BookingSlot {
+  time: string;
+  startsAt: string;
+  available: boolean;
+}
+
+export interface OpeningWindow {
+  dayOfWeek: number;
+  opens: string;
+  closes: string;
 }

@@ -146,6 +146,7 @@ async function main(): Promise<void> {
       legalName: 'Demo Hospitality Pvt Ltd',
       address: '100 Feet Rd, Indiranagar, Bengaluru, Karnataka 560038',
       invoicePrefix: 'SR',
+      slug: 'spice-route-indiranagar',
       settings: { create: { organizationId } },
     },
   });

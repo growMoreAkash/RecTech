@@ -82,6 +82,12 @@ describe('table state machine', () => {
       expect(effect(r, 'RAISE_ALERT')).toMatchObject({ alert: 'RESERVED_TABLE_TAKEN' });
     });
 
+    it('a host seating a walk-in on a held table alerts; seating the booking does not', () => {
+      const walkIn = run('RESERVED', { type: 'HOST_SEAT', source: 'WALK_IN' }, staff('HOST'));
+      expect(effect(walkIn, 'RAISE_ALERT')).toMatchObject({ alert: 'RESERVED_TABLE_TAKEN' });
+      expect(effect(run('RESERVED', { type: 'HOST_SEAT' }, staff('HOST')), 'RAISE_ALERT')).toBeUndefined();
+    });
+
     it('seating a dirty table cancels the clean task and alerts', () => {
       const r = run('NEEDS_CLEANING', { type: 'HOST_SEAT', partySize: 2 }, staff('HOST'));
       expect(next(r)).toBe('OCCUPIED');

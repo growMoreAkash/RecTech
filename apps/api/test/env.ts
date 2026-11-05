@@ -10,6 +10,8 @@ process.env.PIN_MAX_ATTEMPTS = '3';
 process.env.SLA_RECONCILE_SECONDS = '0';
 process.env.BULLMQ_PREFIX = 'dinesense-test';
 process.env.EDGE_HEALTH_SWEEP_SECONDS = '0';
+process.env.GUEST_RETENTION_SWEEP_SECONDS = '0';
+process.env.RESERVATION_SWEEP_SECONDS = '0';
 // Real-looking VAPID keys so push is "enabled"; tests swap the sender for a spy, nothing leaves the machine.
 process.env.VAPID_PUBLIC_KEY ??=
   'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';

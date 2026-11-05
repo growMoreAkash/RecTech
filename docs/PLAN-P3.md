@@ -1,6 +1,6 @@
 # DineSense — Phase 3 plan (guest growth, CRM, analytics)
 
-> Status: **draft for owner approval** (2026-11-05). Builds on the approved [`PLAN.md`](./PLAN.md) (P1–P2 done,
+> Status: **approved by the owner** (2026-11-05). M8 done. Builds on the approved [`PLAN.md`](./PLAN.md) (P1–P2 done,
 > M0–M7). Source features: every **P3** row of [`PRD.md`](./PRD.md). P4 (voice agent, pre-order, no-show model,
 > chat ordering, hand-raise, plates/glass AI, demand forecast, native app) stays out; only extension points.
 
@@ -158,7 +158,7 @@ source, at), `GuestVisitStats` (projection), `Reservation`, `BookingRule` / `Out
 
 - **Domain event outbox**: state changes write a `DomainEvent` row in the same transaction; a BullMQ worker fans out
   to consumers (messages, CRM stats, loyalty, rollups). Exactly-once per consumer via a processed-events table.
-  Introduced in M8, used heavily from M9.
+  Deferred to M9 (its first cross-process consumers); M8 uses an in-process `SeatingEvents` hook for visit stats.
 - **Scheduler**: reminders, feedback, campaigns, holds and pacing all use the existing pattern (deterministic job ids
   - reconcile sweep) — no new infrastructure.
 - **Public guest surfaces** (booking, waitlist, feedback, manage-booking): signed tokens, rate limits, CAPTCHA-free

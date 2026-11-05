@@ -3,6 +3,8 @@
 import {
   Bell,
   Cctv,
+  CalendarClock,
+  Contact,
   ChartColumn,
   ChefHat,
   History,
@@ -41,6 +43,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = [
     { href: '/floor', label: t('nav.floor'), icon: LayoutGrid, show: true },
     { href: '/floor/edit', label: t('nav.editor'), icon: PencilRuler, show: can('OWNER', 'MANAGER') },
+    {
+      href: '/bookings',
+      label: t('nav.bookings'),
+      icon: CalendarClock,
+      show: can('OWNER', 'MANAGER', 'HOST', 'WAITER'),
+    },
+    { href: '/guests', label: t('nav.guests'), icon: Contact, show: can('OWNER', 'MANAGER') },
     { href: '/staff', label: t('nav.staff'), icon: Users, show: can('OWNER', 'MANAGER', 'HOST') },
     { href: '/menu', label: t('nav.menu'), icon: UtensilsCrossed, show: can('OWNER', 'MANAGER', 'CHEF') },
     { href: '/kds', label: t('nav.kitchen'), icon: ChefHat, show: can('OWNER', 'MANAGER', 'CHEF') },

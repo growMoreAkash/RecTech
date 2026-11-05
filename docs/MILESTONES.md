@@ -243,3 +243,45 @@ Automated: split maths unit tests (incl. a 300-bill randomised by-item sweep), p
 mock Razorpay API (order creation with Basic auth, forged checkout and webhook signatures rejected, idempotent
 capture, webhook-only settlement, provider outage, abandoned checkout, late excess capture), camera departure chain
 (paid → empty → clean → vacant; unpaid → alert), reports unit + integration tests.
+
+## M8 — Guests, privacy & bookings (done 2026-11-05) — Phase 3 starts
+
+- **Returning guests**: the host types the party's mobile number when seating (optional). A known number shows a
+  card — visit number, last visit, spend, usual order, **allergies in red**, notes; a new number asks for a name and
+  the guest's opt-ins (never pre-ticked). The table drawer and staff views show who is at the table. Phone only — no
+  photos, no faces.
+- **Privacy (DPDP)**: consent per purpose with full history; every look at a profile is audited (field names only,
+  never the data); managers can **export** a guest's data (JSON) and **erase** it (PII nulled, future bookings
+  cancelled, anonymous counts kept); owners set the **retention period** (default 730 days) and a sweep erases
+  inactive guests automatically.
+- **Online booking** at `/b/{outlet-slug}` on the guest app (link + hours in Settings): party size, day, time slots
+  computed from opening hours, turn times by party size, lead time, horizon, covers per slot and the tables marked
+  "bookable online" in the floor-plan editor. Six phones racing for the last tables can never double-book.
+  Confirmation gives a signed **manage link**: change time/party, cancel, change opt-ins.
+- **Front desk** (`/bookings`): the day's bookings with guest history and allergies, phone bookings on any table,
+  change table, cancel, no-show, **check in** (seats the party on the booked tables; the seating carries the guest
+  and the booking). The table drawer shows today's bookings for that table with check-in.
+- **Table holds**: tables turn _Reserved_ 20 min before a booking (setting); a walk-in seated there (by the host or
+  the camera) raises _Reserved table taken_; if the booked table is still occupied when the hold starts, the host is
+  warned once; bookings not checked in 15 min after their time become no-shows and the table is released.
+
+Demo (dashboard + a phone):
+
+1. Manager → **Settings → Opening hours** → _Every day 12:00–23:00_ → Save hours; **Bookings** section → tick
+   _Guests can book online_ → Save settings. Copy the booking link.
+2. Phone → booking link → 3 guests → tomorrow → 19:30 → name, mobile, tick _WhatsApp me…_ → **Confirm booking** →
+   _Manage my booking_: change to 20:00 (or 4 guests), untick an opt-in, see it saved.
+3. Dashboard → **Bookings** → next day: the booking with its table. **Change table**, then back on the phone the
+   manage page still shows the right time.
+4. **Floor** → a vacant table → type the same mobile number → the guest card appears (first visit, allergies if
+   set) → Seat party. Later visits show _Visit 2_, the usual order and spend.
+5. Book a table for 15 minutes from now (Bookings → New booking). Within 30 s it turns _Reserved_. Seat a walk-in
+   there from the drawer → _Reserved table taken_ alert. Leave another booking unseated → after 15 min it is a
+   no-show and the table is free again.
+6. **Guests** (managers): search, open Asha's profile, add an allergy, **Export data** (JSON download), **Erase
+   personal data** → the profile shows _Data erased_, the booking is cancelled, lookups no longer find the number.
+
+Automated: phone normalisation, local-time helpers, table picking (incl. joins, sections, online-only tables) and
+slots, a 50-run property test that never double-books; integration tests for recognition + visit stats, export/
+erase/retention, the concurrent booking race, manage link (forged token, reschedule, consent history, cancel),
+booking closed, front-desk book/check-in, holds/walk-in alert/no-shows.

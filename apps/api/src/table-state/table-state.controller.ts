@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
+  type ConsentFlags,
   type Actor,
   seatSchema,
   type SeatInput,
@@ -15,6 +16,7 @@ import type { RequestContext } from '../common/request';
 import { rolesIn } from '../common/roles';
 import { ApiZodBody, ZodPipe } from '../common/zod';
 import { PrismaService } from '../prisma/prisma.service';
+import { upsertGuestByPhone } from '../guests/guest-identity';
 import { TableStateService } from './table-state.service';
 
 const staffActor = (ctx: RequestContext, outletId: string): Actor => ({
@@ -32,6 +34,22 @@ export class TableStateController {
     private readonly state: TableStateService,
     private readonly prisma: PrismaService,
   ) {}
+
+  /** Returning-guest recognition at the door: the party's phone links the seating to their profile. */
+  private async guestFor(
+    ctx: RequestContext,
+    g: { phone: string; name?: string; consents?: ConsentFlags },
+  ): Promise<string> {
+    const guest = await this.prisma.$transaction((tx) =>
+      upsertGuestByPhone(tx, ctx.user.org, g.phone, {
+        name: g.name,
+        consents: g.consents,
+        source: 'HOST',
+        actorId: ctx.user.sub,
+      }),
+    );
+    return guest.id;
+  }
 
   @Post('seat')
   @HttpCode(200)
@@ -55,7 +73,11 @@ export class TableStateController {
       actor: staffActor(ctx, outletId),
       audit: actorFromContext(ctx),
       source: 'STAFF',
-      seat: { notes: body.notes, joinTableIds: body.joinTableIds },
+      seat: {
+        notes: body.notes,
+        joinTableIds: body.joinTableIds,
+        ...(body.guest ? { guestId: await this.guestFor(ctx, body.guest) } : {}),
+      },
     });
     return { tables: out.tables };
   }

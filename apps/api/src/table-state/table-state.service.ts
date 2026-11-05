@@ -17,6 +17,7 @@ import { AppError } from '../common/app-error';
 import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { SeatingEvents } from './seating-events';
 import { SLA_SCHEDULER, type SlaScheduler } from './sla-scheduler';
 import { type TableLive, TableViews } from './table-views';
 
@@ -38,7 +39,7 @@ export interface ApplyInput {
   confidence?: number;
   payload?: Record<string, unknown>;
   /** Extra data for HOST_SEAT. */
-  seat?: { notes?: string; joinTableIds?: string[] };
+  seat?: { notes?: string; joinTableIds?: string[]; guestId?: string; reservationId?: string };
 }
 
 export interface ApplyOutput {
@@ -86,6 +87,7 @@ export class TableStateService {
     private readonly realtime: RealtimeService,
     private readonly notifier: NotifierService,
     @Inject(SLA_SCHEDULER) private readonly sla: SlaScheduler,
+    private readonly seatingEvents: SeatingEvents,
   ) {}
 
   async apply(input: ApplyInput): Promise<ApplyOutput> {
@@ -95,6 +97,7 @@ export class TableStateService {
       seatedAt?: Date;
       alerts: Alert[];
       tasks: Task[];
+      closedSeatingId?: string;
     } = {
       sla: [],
       alerts: [],
@@ -164,6 +167,8 @@ export class TableStateService {
                 source: effect.source satisfies SeatingSource,
                 seatedBy: effect.seatedBy,
                 notes: input.seat?.notes ?? null,
+                guestId: input.seat?.guestId ?? null,
+                reservationId: input.seat?.reservationId ?? null,
                 seatedAt: occurredAt,
                 tables: { create: targetIds.map((tableId) => ({ tableId })) },
               },
@@ -180,6 +185,7 @@ export class TableStateService {
               data: { status: 'CLOSED', closedAt: occurredAt },
             });
             await tx.seatingTable.updateMany({ where: { seatingId }, data: { isOpen: false } });
+            after.closedSeatingId = seatingId;
             break;
           case 'SET_SEATING_TS':
             if (seatingId) await this.setTimestamp(tx, seatingId, effect.field, occurredAt, input.actor);
@@ -314,6 +320,15 @@ export class TableStateService {
     await Promise.allSettled([
       ...after.tasks.map((t) => this.notifier.taskCreated(t)),
       ...after.alerts.map((a) => this.notifier.alertRaised(a)),
+      ...(after.closedSeatingId
+        ? [
+            this.seatingEvents.emitClosed({
+              organizationId: input.organizationId,
+              outletId: input.outletId,
+              seatingId: after.closedSeatingId,
+            }),
+          ]
+        : []),
     ]);
     return { result: out.result, duplicate: out.duplicate, tables };
   }

@@ -18,6 +18,7 @@ export interface TableLive {
 const seatingInclude = {
   servingWaiter: { select: { id: true, name: true } },
   tables: { select: { tableId: true } },
+  guest: { select: { id: true, name: true, visits: true, allergies: true, deletedAt: true } },
   // The live greet assignment (latest, not expired).
   assignments: {
     where: { expiredAt: null },
@@ -57,6 +58,12 @@ export function toSeatingSummary(s: SeatingRow): SeatingSummary {
       : null,
     slaBreachedAt: iso(s.slaBreachedAt),
     escalatedAt: iso(s.escalatedAt),
+    reservationId: s.reservationId,
+    // Staff see who they are serving (returning guests); erased profiles show nothing.
+    guest:
+      s.guest && !s.guest.deletedAt
+        ? { id: s.guest.id, name: s.guest.name, visits: s.guest.visits, allergies: s.guest.allergies }
+        : null,
   };
 }
 

@@ -46,3 +46,36 @@ export function localDayRange(date: string, timeZone = DEFAULT_TZ): { start: Dat
   const end = new Date(nextUtc - offsetMs(new Date(nextUtc), timeZone));
   return { start, end };
 }
+
+/** The instant of local wall-clock time `hhmm` ("19:30") on local date `date` in `timeZone`. */
+export function localDateTime(date: string, hhmm: string, timeZone = DEFAULT_TZ): Date {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const t = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  if (!d || !t) throw new RangeError(`Invalid local time ${date} ${hhmm}`);
+  const asUtc = Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3]), Number(t[1]), Number(t[2]));
+  // Two passes handle offsets that differ either side of the instant (DST zones; India has none).
+  const first = asUtc - offsetMs(new Date(asUtc), timeZone);
+  return new Date(asUtc - offsetMs(new Date(first), timeZone));
+}
+
+/** Local "HH:MM" of an instant. */
+export function localTime(at: Date, timeZone = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(at);
+}
+
+/** Local day of week (0 = Sunday) of a local date. */
+export function dayOfWeek(date: string): number {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** Local date `days` after `date` (YYYY-MM-DD arithmetic, calendar safe). */
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}

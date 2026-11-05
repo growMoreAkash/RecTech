@@ -2,6 +2,7 @@
 
 import {
   type Actor,
+  localDate,
   type MachineContext,
   STAFF_EVENTS,
   TABLE_STATUSES,
@@ -18,7 +19,8 @@ import { Field, Input, Select } from '@dinesense/ui/field';
 import { Sheet } from '@dinesense/ui/sheet';
 import { api } from '@/lib/api';
 import { elapsedSince, formatDuration } from '@/lib/floor-style';
-import { useOutletMutation, useTableOrders, useTimeline } from '@/lib/queries';
+import { useOutletMutation, useReservations, useTableOrders, useTimeline } from '@/lib/queries';
+import { type GuestDraft, GuestFields } from '@/components/guests/guest-fields';
 import { BillPanel } from './bill-panel';
 import { OrderCard } from './orders-panel';
 import { useSession } from '@/lib/session';
@@ -129,10 +131,28 @@ function DrawerBody({ table, floor }: { table: FloorTable; floor: FloorSnapshot 
                 <dd>{seating.notes}</dd>
               </>
             ) : null}
+            {seating.guest ? (
+              <>
+                <dt className="text-slate-500">{t('guests.guest')}</dt>
+                <dd>
+                  {seating.guest.name ?? t('guests.unnamed')}
+                  {' · '}
+                  {seating.guest.visits
+                    ? t('guests.visitNumber', { n: seating.guest.visits + 1 })
+                    : t('guests.firstVisit')}
+                  {seating.guest.allergies ? (
+                    <span className="block font-medium text-red-700">
+                      ⚠ {t('guests.allergiesValue', { value: seating.guest.allergies })}
+                    </span>
+                  ) : null}
+                </dd>
+              </>
+            ) : null}
           </>
         ) : null}
       </dl>
 
+      {!seating ? <TableBookings table={table} /> : null}
       {canSeat ? <SeatForm table={table} floor={floor} /> : null}
 
       {actions.length ? (
@@ -200,11 +220,54 @@ function DrawerBody({ table, floor }: { table: FloorTable; floor: FloorSnapshot 
   );
 }
 
+/** Today's upcoming bookings on this table, with check-in (seats the party as the booking). */
+function TableBookings({ table }: { table: FloorTable }) {
+  const t = useTranslations('bookings');
+  const format = useFormatter();
+  const { outlet, can } = useSession();
+  const today = localDate(new Date(), outlet.timezone);
+  const list = useReservations(outlet.id, today);
+  const checkIn = useOutletMutation(outlet.id, (id: string) =>
+    api(`/outlets/${outlet.id}/reservations/${id}/check-in`, { method: 'POST', body: {} }),
+  );
+  const mine = (list.data ?? []).filter(
+    (r) =>
+      r.status === 'CONFIRMED' && r.tableIds.includes(table.id) && new Date(r.endsAt).getTime() > Date.now(),
+  );
+  if (!mine.length) return null;
+  return (
+    <section
+      aria-labelledby="bk-h"
+      className="space-y-2 rounded-lg border border-violet-200 bg-violet-50 p-3"
+    >
+      <h3 id="bk-h" className="text-sm font-semibold">
+        {t('onThisTable')}
+      </h3>
+      {mine.map((r) => (
+        <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span>
+            <strong>{format.dateTime(new Date(r.startsAt), { hour: '2-digit', minute: '2-digit' })}</strong> ·{' '}
+            {r.guest.name ?? t('noName')} · {t('party', { count: r.partySize })}
+            {r.guest.visits ? ` · ${t('regular', { count: r.guest.visits })}` : ''}
+          </span>
+          {can('OWNER', 'MANAGER', 'HOST', 'WAITER') ? (
+            <Button size="sm" onClick={() => checkIn.mutate(r.id)} disabled={checkIn.isPending}>
+              {t('checkIn')}
+            </Button>
+          ) : null}
+        </div>
+      ))}
+      <ErrorText error={checkIn.error} />
+    </section>
+  );
+}
+
 function SeatForm({ table, floor }: { table: FloorTable; floor: FloorSnapshot }) {
   const t = useTranslations('seat');
   const { outlet } = useSession();
   const [party, setParty] = useState(Math.min(2, table.capacity));
   const [join, setJoin] = useState<string[]>([]);
+  const [guest, setGuest] = useState<GuestDraft | null>(null);
   const free = new Set<TableStatus>(['VACANT', 'RESERVED', 'NEEDS_CLEANING']);
   const joinable = floor.tables.filter((x) => table.joinableWith.includes(x.id) && free.has(x.live.status));
   const capacity =
@@ -221,6 +284,9 @@ function SeatForm({ table, floor }: { table: FloorTable; floor: FloorSnapshot })
       partySize: party,
       ...(notes ? { notes } : {}),
       ...(join.length ? { joinTableIds: join } : {}),
+      ...(guest ? { guest } : {}),
+      // A walk-in on a table held for a booking: the host is warned to move the booking.
+      ...(table.live.status === 'RESERVED' ? { source: 'WALK_IN' } : {}),
     });
   }
 
@@ -246,6 +312,7 @@ function SeatForm({ table, floor }: { table: FloorTable; floor: FloorSnapshot })
           />
         )}
       </Field>
+      <GuestFields onChange={setGuest} />
       <Field label={t('notes')}>
         {(p) => <Input {...p} name="notes" maxLength={280} placeholder={t('notesPlaceholder')} />}
       </Field>

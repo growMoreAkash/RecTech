@@ -58,7 +58,9 @@
     "audit": "Audit log",
     "settings": "Settings",
     "cameras": "Cameras",
-    "reports": "Reports"
+    "reports": "Reports",
+    "bookings": "Bookings",
+    "guests": "Guests"
   },
   "login": {
     "title": "Sign in to DineSense",
@@ -91,7 +93,9 @@
     "SPLIT_INVALID": "That split doesn't add up to the bill.",
     "PAYMENT_IN_PROGRESS": "A guest is paying this bill online right now. Try again in a few minutes.",
     "PAYMENTS_UNAVAILABLE": "Online payment isn't available here. Please pay at the counter.",
-    "PAYMENT_VERIFICATION_FAILED": "We couldn't confirm that payment. If money was taken, show this to the staff."
+    "PAYMENT_VERIFICATION_FAILED": "We couldn't confirm that payment. If money was taken, show this to the staff.",
+    "NO_AVAILABILITY": "No table is free for that time.",
+    "BOOKING_CLOSED": "Online booking is turned off."
   },
   "roles": {
     "OWNER": "Owner",
@@ -230,7 +234,8 @@
     "addSection": "Add section",
     "sectionName": "Section name",
     "busyTables": "These tables are in service and can't be removed: {labels}",
-    "managersOnly": "Only managers can edit the floor plan."
+    "managersOnly": "Only managers can edit the floor plan.",
+    "onlineBookable": "Bookable online"
   },
   "staff": {
     "team": "Team",
@@ -359,7 +364,11 @@
       "PAYMENT_IN_PROGRESS": "Someone at your table is already paying. Try again in a minute.",
       "PAYMENT_VERIFICATION_FAILED": "We couldn't confirm that payment. If money was taken, please show this to the staff.",
       "BILL_NOT_EDITABLE": "This bill is already settled.",
-      "NOTHING_TO_BILL": "Nothing to pay yet."
+      "NOTHING_TO_BILL": "Nothing to pay yet.",
+      "NO_AVAILABILITY": "That time was just taken. Please pick another.",
+      "BOOKING_CLOSED": "Online booking is closed right now.",
+      "NOT_FOUND": "We couldn't find that booking.",
+      "CONFLICT": "This booking can no longer be changed."
     },
     "pay": {
       "cta": "Pay bill",
@@ -729,6 +738,51 @@
       "title": "Online payments",
       "online": "Guests can pay from the table QR page (UPI / cards)",
       "hint": "Uses Razorpay (per-transaction fees on live keys). Needs RAZORPAY_* keys on the server; test-mode keys until you go live."
+    },
+    "booking": {
+      "title": "Bookings",
+      "hint": "Online booking page and table holds. Turn times decide how long a table is blocked.",
+      "enabled": "Guests can book online",
+      "slot": "Slot length",
+      "minutes": "{count} min",
+      "maxParty": "Largest online party",
+      "lead": "Book at least (minutes ahead)",
+      "horizon": "Book up to (days ahead)",
+      "lastSeating": "Last booking before closing (minutes)",
+      "maxCovers": "Max guests starting per slot (0 = no limit)",
+      "turnSmall": "Table time, 1–2 guests (min)",
+      "turnMedium": "Table time, 3–4 guests (min)",
+      "turnLarge": "Table time, 5+ guests (min)",
+      "hold": "Hold the table before a booking (min)",
+      "grace": "No-show after (min late)"
+    },
+    "hours": {
+      "title": "Opening hours & booking link",
+      "link": "Share this link on your website, Google profile and Instagram bio:",
+      "day": "Day",
+      "opens": "Opens",
+      "closes": "Closes",
+      "days": {
+        "0": "Sunday",
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday"
+      },
+      "remove": "Remove",
+      "none": "No opening hours yet — guests can't book until you add them.",
+      "add": "Add hours",
+      "everyDay": "Every day 12:00–23:00",
+      "save": "Save hours"
+    },
+    "privacy": {
+      "title": "Guest data retention",
+      "hint": "Personal data of guests who haven't visited or booked for this long is erased automatically (DPDP). 0 keeps it until a guest asks for deletion. Applies to all outlets.",
+      "days": "Keep for (days)",
+      "save": "Save",
+      "saved": "Saved"
     }
   },
   "cameras": {
@@ -850,5 +904,132 @@
       "RAZORPAY": "Online (Razorpay)",
       "OTHER": "Other"
     }
+  },
+  "bookings": {
+    "title": "Bookings",
+    "summary": "{bookings, plural, one {# booking} other {# bookings}} · {covers, plural, one {# guest} other {# guests}}",
+    "prevDay": "Previous day",
+    "nextDay": "Next day",
+    "date": "Date",
+    "today": "Today",
+    "new": "New booking",
+    "none": "No bookings for this day.",
+    "erased": "(data erased)",
+    "noName": "No name",
+    "party": "{count, plural, one {# guest} other {# guests}}",
+    "regular": "{count, plural, one {# visit before} other {# visits before}}",
+    "channel": {
+      "ONLINE": "Online",
+      "STAFF": "Phone / desk"
+    },
+    "noTable": "no table",
+    "held": "Table held",
+    "status": {
+      "CONFIRMED": "Confirmed",
+      "SEATED": "Seated",
+      "CANCELLED": "Cancelled",
+      "NO_SHOW": "No-show"
+    },
+    "checkIn": "Check in",
+    "changeTable": "Change table",
+    "noShow": "No-show",
+    "cancel": "Cancel",
+    "confirmCancel": "Cancel this booking?",
+    "table": "Table",
+    "save": "Save",
+    "partySize": "Guests",
+    "time": "Time",
+    "closed": "Closed on this day (set opening hours in Settings).",
+    "notes": "Notes",
+    "book": "Book",
+    "close": "Close",
+    "onThisTable": "Booked on this table today"
+  },
+  "guests": {
+    "unnamed": "Guest",
+    "guest": "Guest",
+    "visitNumber": "Visit {n}",
+    "firstVisit": "First visit",
+    "allergiesValue": "Allergies: {value}",
+    "lastVisit": "Last visit {date}",
+    "spent": "Spent",
+    "usual": "Usually orders: {items}",
+    "phone": "Mobile number",
+    "phoneOptional": "Mobile number (optional — recognises returning guests)",
+    "phoneInvalid": "Enter a 10-digit mobile number (or +country code).",
+    "phoneHint": "Ask the guest; never required for walk-ins.",
+    "name": "Name",
+    "consentsAsk": "Ask the guest — may we:",
+    "consent": {
+      "WHATSAPP": "send booking updates on WhatsApp",
+      "FEEDBACK": "ask for feedback after the visit",
+      "MARKETING": "send offers and news"
+    },
+    "managersOnly": "Only managers can browse guest profiles.",
+    "title": "Guests",
+    "privacyNote": "Phone numbers only — no photos, no face recognition. Every view is logged; export or erase a guest's data on request (DPDP Act).",
+    "search": "Search",
+    "searchPlaceholder": "Name or last 4+ digits",
+    "visits": "{count, plural, one {# visit} other {# visits}}",
+    "noResults": "No guests found.",
+    "profile": "Guest profile",
+    "erasedTitle": "Data erased",
+    "close": "Close",
+    "erasedBody": "This guest's personal data was erased. Only anonymous visit counts remain.",
+    "visitsLabel": "Visits",
+    "lastVisitLabel": "Last visit",
+    "favourites": "Favourites",
+    "allergies": "Allergies",
+    "birthday": "Birthday",
+    "birthdayHint": "MM-DD, no year",
+    "notes": "Notes",
+    "consentsTitle": "The guest agreed to:",
+    "save": "Save",
+    "saved": "Saved",
+    "export": "Export data (JSON)",
+    "erase": "Erase personal data",
+    "confirmErase": "Erase this guest's name, phone, notes and preferences? Future bookings are cancelled. This cannot be undone."
+  },
+  "booking": {
+    "title": "Book a table",
+    "today": "Today",
+    "guests": "Guests",
+    "fewer": "Fewer guests",
+    "more": "More guests",
+    "largerGroups": "For more than {max} guests, please call us.",
+    "day": "Day",
+    "time": "Time",
+    "noSlots": "No tables free that day for this group. Try another day or a smaller group.",
+    "name": "Your name",
+    "phone": "Mobile number",
+    "phoneHint": "To find and manage your booking. We don't share it.",
+    "phoneInvalid": "Enter a 10-digit mobile number.",
+    "notes": "Anything we should know? (optional)",
+    "notesPlaceholder": "Birthday, high chair, window seat…",
+    "consentsTitle": "What we may send you",
+    "consent": {
+      "WHATSAPP": "WhatsApp me about this booking",
+      "FEEDBACK": "Ask me for feedback after my visit",
+      "MARKETING": "Send me offers and news"
+    },
+    "privacy": "All optional and changeable any time from your booking link. No spam, no sharing.",
+    "confirm": "Confirm booking",
+    "confirmedTitle": "You're booked!",
+    "confirmedBody": "Table for {party} on {date} at {time}.",
+    "manageHint": "Save this link to change or cancel:",
+    "manageLink": "Manage my booking",
+    "closedOnline": "Online booking isn't available right now. Please call us or walk in.",
+    "status": {
+      "CONFIRMED": "Confirmed",
+      "SEATED": "Enjoy your meal!",
+      "CANCELLED": "Cancelled",
+      "NO_SHOW": "Missed"
+    },
+    "partyOf": "{count, plural, one {# guest} other {# guests}}",
+    "change": "Change",
+    "cancel": "Cancel booking",
+    "confirmCancel": "Cancel this booking?",
+    "saveChange": "Save new time",
+    "back": "Back"
   }
 }

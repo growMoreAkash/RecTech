@@ -7,6 +7,9 @@ import type {
   AuditEntry,
   Bill,
   Camera,
+  GuestProfile,
+  OpeningWindow,
+  Reservation,
   EdgeDevice,
   FloorSnapshot,
   KdsBoard,
@@ -29,7 +32,32 @@ export const qk = {
   kds: (o: string, station: string) => ['outlet', o, 'kds', station] as const,
   bills: (o: string) => ['outlet', o, 'bills'] as const,
   cameras: (o: string) => ['outlet', o, 'cameras'] as const,
+  reservations: (o: string) => ['outlet', o, 'reservations'] as const,
 };
+
+export const useReservations = (outletId: string, date: string) =>
+  useQuery({
+    queryKey: [...qk.reservations(outletId), date],
+    queryFn: () => api<Reservation[]>(`/outlets/${outletId}/reservations?date=${date}`),
+  });
+
+export const useHours = (outletId: string) =>
+  useQuery({
+    queryKey: ['outlet', outletId, 'hours'],
+    queryFn: () => api<OpeningWindow[]>(`/outlets/${outletId}/hours`),
+  });
+
+/** Looks a guest up by phone once it is a complete number (recognition at the door / on the phone). */
+export const useGuestLookup = (outletId: string, phone: string | null) =>
+  useQuery({
+    queryKey: ['outlet', outletId, 'guest-lookup', phone],
+    queryFn: () =>
+      api<{ guest: GuestProfile | null }>(
+        `/outlets/${outletId}/guests/lookup?phone=${encodeURIComponent(phone!)}`,
+      ),
+    enabled: !!phone,
+    staleTime: 30_000,
+  });
 
 /** Cameras + edge devices (managers). Polled so the health wall stays current between socket hints. */
 export const useCameras = (outletId: string) =>

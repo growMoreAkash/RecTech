@@ -48,6 +48,10 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(20).optional(),
   VAPID_PRIVATE_KEY: z.string().min(20).optional(),
   VAPID_SUBJECT: z.string().default('mailto:ops@example.com'),
+  /** How often guest data past its retention period is erased (seconds; 0 disables). */
+  GUEST_RETENTION_SWEEP_SECONDS: z.coerce.number().int().min(0).default(3600),
+  /** How often table holds / no-shows for bookings are processed (seconds; 0 disables, tests call sweep()). */
+  RESERVATION_SWEEP_SECONDS: z.coerce.number().int().min(0).default(30),
   /**
    * Razorpay (PAID SERVICE: per-transaction fees on live keys). Online payment is off unless all three are set.
    * Use test-mode keys (rzp_test_…) until the owner approves going live.

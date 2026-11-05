@@ -259,6 +259,14 @@ function Inspector({
             ))}
         </div>
       </fieldset>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={table.onlineBookable ?? true}
+          onChange={(e) => onPatch({ onlineBookable: e.target.checked })}
+        />
+        {t('editor.onlineBookable')}
+      </label>
       <Button variant="danger" size="sm" onClick={onRemove}>
         {t('editor.removeTable')}
       </Button>

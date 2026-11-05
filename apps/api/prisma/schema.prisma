@@ -57,6 +57,18 @@ enum SeatingSource {
   WAITLIST
 }
 
+enum ReservationStatus {
+  CONFIRMED
+  SEATED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ReservationChannel {
+  ONLINE
+  STAFF
+}
+
 enum SeatingStatus {
   OPEN
   CLOSED
@@ -177,9 +189,11 @@ enum DeviceKind {
 
 // ───────────── Tenancy ─────────────
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  name               String
+  createdAt          DateTime @default(now())
+  /// DPDP: personal data of guests inactive this long is erased (0 = keep until a deletion request).
+  guestRetentionDays Int      @default(730)
 
   outlets Outlet[]
   users   User[]
@@ -196,6 +210,8 @@ model Outlet {
   legalName      String?
   address        String?
   invoicePrefix  String    @default("INV")
+  /// Public booking page: /b/{slug}.
+  slug           String    @unique
   createdAt      DateTime  @default(now())
   archivedAt     DateTime?
 
@@ -213,6 +229,8 @@ model Outlet {
   tableZones       TableZone[]
   seatings         Seating[]
   assignments      Assignment[]
+  openingHours     OutletHours[]
+  reservations     Reservation[]
   tableEvents      TableEvent[]
   tasks            Task[]
   alerts           Alert[]
@@ -249,6 +267,18 @@ model OutletSettings {
   defaultMaxTables          Int            @default(4)
   /// Guests may pay from the QR page (needs a configured payment provider).
   onlinePaymentsEnabled     Boolean        @default(false)
+  bookingEnabled            Boolean        @default(false)
+  bookingSlotMinutes        Int            @default(30)
+  bookingLeadMinutes        Int            @default(60)
+  bookingHorizonDays        Int            @default(30)
+  bookingMaxPartySize       Int            @default(8)
+  bookingLastSeatingMinutes Int            @default(60)
+  bookingMaxCoversPerSlot   Int            @default(0)
+  turnSmallMinutes          Int            @default(75)
+  turnMediumMinutes         Int            @default(90)
+  turnLargeMinutes          Int            @default(120)
+  reservationHoldMinutes    Int            @default(20)
+  noShowGraceMinutes        Int            @default(15)
   updatedAt                 DateTime       @updatedAt
 
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
@@ -286,6 +316,8 @@ model Table {
   rotation        Float       @default(0)
   /// Table ids this table may be joined with (validated in app).
   joinableWith    String[]
+  /// Offered on the public booking page (staff can book any table).
+  onlineBookable  Boolean     @default(true)
   /// Guest QR → /t/{qrToken}
   qrToken         String      @unique
   /// Staff "At table" QR
@@ -505,20 +537,102 @@ model EdgeEventReceipt {
 
 // ───────────── Journey ─────────────
 /// P1 minimal; CRM fields arrive in P3.
+/// A guest is identified by phone (E.164) within an organisation (all its outlets). No faces, no accounts.
 model Guest {
-  id             String    @id @default(cuid())
-  organizationId String
-  phone          String?
-  name           String?
-  /// { marketing: false, whatsapp: false, feedback: false }
-  consentFlags   Json      @default("{}")
-  createdAt      DateTime  @default(now())
-  deletedAt      DateTime?
+  id              String    @id @default(cuid())
+  organizationId  String
+  phone           String?
+  name            String?
+  /// Current opt-ins { WHATSAPP, FEEDBACK, MARKETING }; history in GuestConsent.
+  consentFlags    Json      @default("{}")
+  /// "MM-DD"
+  birthday        String?
+  notes           String?
+  allergies       String?
+  /// Visit projection (recomputed when a seating closes).
+  visits          Int       @default(0)
+  lastVisitAt     DateTime?
+  totalSpendPaise Int       @default(0)
+  /// [{ name, count }] top items.
+  favourites      Json      @default("[]")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+  /// Personal data erased (request or retention); the row stays for anonymous aggregates.
+  deletedAt       DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
   seatings     Seating[]
+  consents     GuestConsent[]
+  reservations Reservation[]
 
   @@unique([organizationId, phone])
+}
+
+/// Append-only consent history (DPDP: who agreed to what, when, where).
+model GuestConsent {
+  id             String   @id @default(cuid())
+  organizationId String
+  guestId        String
+  /// WHATSAPP | FEEDBACK | MARKETING
+  purpose        String
+  granted        Boolean
+  /// BOOKING_PAGE | HOST | MANAGE_LINK | STAFF
+  source         String
+  actorId        String?
+  createdAt      DateTime @default(now())
+
+  guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([guestId, purpose, createdAt])
+}
+
+model OutletHours {
+  id             String @id @default(cuid())
+  organizationId String
+  outletId       String
+  /// 0 = Sunday
+  dayOfWeek      Int
+  /// "HH:MM" local
+  opens          String
+  closes         String
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId])
+}
+
+model Reservation {
+  id             String             @id @default(cuid())
+  organizationId String
+  outletId       String
+  guestId        String
+  partySize      Int
+  startsAt       DateTime
+  endsAt         DateTime
+  status         ReservationStatus  @default(CONFIRMED)
+  channel        ReservationChannel
+  /// Assigned table(s); joined tables when more than one.
+  tableIds       String[]
+  sectionId      String?
+  notes          String?
+  heldAt         DateTime?
+  /// Raised once when the table couldn't be held (still occupied).
+  holdAlertAt    DateTime?
+  seatingId      String?            @unique
+  seatedAt       DateTime?
+  cancelledAt    DateTime?
+  /// GUEST | STAFF
+  cancelledBy    String?
+  noShowAt       DateTime?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @default(now()) @updatedAt
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  guest  Guest  @relation(fields: [guestId], references: [id])
+
+  @@index([outletId, startsAt])
+  @@index([guestId])
 }
 
 model Seating {

@@ -42,7 +42,12 @@ export async function createTenant(prisma: PrismaClient, opts: { floor?: boolean
   const tag = `${Date.now().toString(36)}${counter++}`;
   const org = await prisma.organization.create({ data: { name: `Org ${tag}` } });
   const outlet = await prisma.outlet.create({
-    data: { organizationId: org.id, name: `Outlet ${tag}`, settings: { create: { organizationId: org.id } } },
+    data: {
+      organizationId: org.id,
+      name: `Outlet ${tag}`,
+      slug: `outlet-${tag}`,
+      settings: { create: { organizationId: org.id } },
+    },
   });
   const passwordHash = await hashSecret(PASSWORD);
   const roles: [keyof Tenant['users'], Role, string][] = [

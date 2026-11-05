@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { seatGuestSchema } from '../booking/schemas';
 import { ASSIGNMENT_MODES, ROLES, SEATING_SOURCES, TABLE_SHAPES, TABLE_STATUSES } from '../enums';
 import { STAFF_EVENTS } from '../table-machine/machine';
 
@@ -32,6 +33,8 @@ export const floorTableSchema = z
     rotation: z.number().finite().min(-360).max(360),
     /** Keys (existing id or new key) of tables this one may be joined with. */
     joinableWith: z.array(z.string().min(1).max(64)).max(20),
+    /** Offered on the public booking page (default true). */
+    onlineBookable: z.boolean().optional(),
   })
   .strict()
   .refine((t) => t.minCapacity <= t.capacity, {
@@ -77,6 +80,8 @@ export const seatSchema = z
     source: z.enum(SEATING_SOURCES).optional(),
     /** Extra tables to join into this seating. */
     joinTableIds: z.array(id).max(6).optional(),
+    /** Returning-guest recognition: the party's phone (and name / opt-ins on first visit). */
+    guest: seatGuestSchema.optional(),
   })
   .strict();
 export type SeatInput = z.infer<typeof seatSchema>;

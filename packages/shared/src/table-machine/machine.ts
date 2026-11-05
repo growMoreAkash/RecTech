@@ -137,7 +137,8 @@ export function transition(
         { type: 'CREATE_SEATING', source, seatedBy: seatedByCamera, ...(partySize ? { partySize } : {}) },
         { type: 'START_GREET_SLA' },
       ];
-      if (from === 'RESERVED' && isCamera) {
+      // A walk-in (camera, or host explicitly seating a walk-in) on a held table needs the booking moved.
+      if (from === 'RESERVED' && (isCamera || requested === 'WALK_IN')) {
         effects.push({ type: 'RAISE_ALERT', alert: 'RESERVED_TABLE_TAKEN', severity: 'WARNING' });
       }
       if (from === 'NEEDS_CLEANING') {

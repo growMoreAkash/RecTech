@@ -21,6 +21,24 @@ export const outletSettingsSchema = z
     pricesIncludeTax: z.boolean(),
     defaultMaxTables: z.number().int().min(1).max(50),
     onlinePaymentsEnabled: z.boolean(),
+    bookingEnabled: z.boolean(),
+    bookingSlotMinutes: z.union([z.literal(15), z.literal(30), z.literal(60)]),
+    bookingLeadMinutes: z
+      .number()
+      .int()
+      .min(0)
+      .max(7 * 24 * 60),
+    bookingHorizonDays: z.number().int().min(1).max(180),
+    bookingMaxPartySize: z.number().int().min(1).max(60),
+    bookingLastSeatingMinutes: z.number().int().min(0).max(240),
+    bookingMaxCoversPerSlot: z.number().int().min(0).max(1000),
+    turnSmallMinutes: z.number().int().min(15).max(360),
+    turnMediumMinutes: z.number().int().min(15).max(360),
+    turnLargeMinutes: z.number().int().min(15).max(480),
+    /** Table is held (RESERVED) this long before a booking. */
+    reservationHoldMinutes: z.number().int().min(0).max(180),
+    /** A booking not checked in this long after its time becomes a no-show and the table is released. */
+    noShowGraceMinutes: z.number().int().min(5).max(120),
   })
   .strict();
 export type OutletSettingsInput = z.infer<typeof outletSettingsSchema>;
@@ -46,6 +64,18 @@ export const DEFAULT_OUTLET_SETTINGS: OutletSettingsInput = {
   pricesIncludeTax: false,
   defaultMaxTables: 4,
   onlinePaymentsEnabled: false,
+  bookingEnabled: false,
+  bookingSlotMinutes: 30,
+  bookingLeadMinutes: 60,
+  bookingHorizonDays: 30,
+  bookingMaxPartySize: 8,
+  bookingLastSeatingMinutes: 60,
+  bookingMaxCoversPerSlot: 0,
+  turnSmallMinutes: 75,
+  turnMediumMinutes: 90,
+  turnLargeMinutes: 120,
+  reservationHoldMinutes: 20,
+  noShowGraceMinutes: 15,
 };
 
 export const paginationSchema = z.object({

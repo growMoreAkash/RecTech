@@ -74,6 +74,11 @@ export const DEVICE_KINDS = values('STAFF_TERMINAL', 'KDS');
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 
 /** All enums keyed by their Prisma enum name (used by the drift test). */
+export const RESERVATION_STATUSES = ['CONFIRMED', 'SEATED', 'CANCELLED', 'NO_SHOW'] as const;
+export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+export const RESERVATION_CHANNELS = ['ONLINE', 'STAFF'] as const;
+export type ReservationChannel = (typeof RESERVATION_CHANNELS)[number];
+
 export const PRISMA_ENUMS = {
   Role: ROLES,
   TableStatus: TABLE_STATUSES,
@@ -96,4 +101,6 @@ export const PRISMA_ENUMS = {
   AlertSeverity: ALERT_SEVERITIES,
   AlertStatus: ALERT_STATUSES,
   DeviceKind: DEVICE_KINDS,
+  ReservationStatus: RESERVATION_STATUSES,
+  ReservationChannel: RESERVATION_CHANNELS,
 } as const;

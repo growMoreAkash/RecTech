@@ -6,6 +6,8 @@ import { AlertsModule } from './alerts/alerts.module';
 import { AuditModule } from './audit/audit.module';
 import { BillingModule } from './billing/billing.module';
 import { ReportsModule } from './reports/reports.module';
+import { GuestsModule } from './guests/guests.module';
+import { ReservationsModule } from './reservations/reservations.module';
 import { AuthModule } from './auth/auth.module';
 import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
@@ -66,6 +68,8 @@ import { TableStateModule } from './table-state/table-state.module';
     GuestModule,
     BillingModule,
     ReportsModule,
+    GuestsModule,
+    ReservationsModule,
     EdgeModule,
   ],
   controllers: [HealthController, MeController],

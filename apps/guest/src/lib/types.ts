@@ -98,3 +98,35 @@ export interface CheckoutStart {
   name: string;
   description: string;
 }
+
+export interface BookingPage {
+  name: string;
+  address: string | null;
+  slug: string;
+  timezone: string;
+  today: string;
+  booking: { enabled: boolean; maxPartySize: number; horizonDays: number; slotMinutes: number };
+  sections: { id: string; name: string }[];
+}
+
+export interface BookingSlot {
+  time: string;
+  startsAt: string;
+  available: boolean;
+}
+
+export type Consents = Partial<Record<'WHATSAPP' | 'FEEDBACK' | 'MARKETING', boolean>>;
+
+export interface GuestBooking {
+  status: 'CONFIRMED' | 'SEATED' | 'CANCELLED' | 'NO_SHOW';
+  startsAt: string;
+  date: string;
+  time: string;
+  partySize: number;
+  name: string | null;
+  notes: string | null;
+  consents: Consents;
+  outlet: { name: string; address: string | null; slug: string; timezone: string };
+  canChange: boolean;
+  maxPartySize: number;
+}

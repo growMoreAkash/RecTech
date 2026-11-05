@@ -38,6 +38,30 @@ export async function guestApi<T>(
   return body as T;
 }
 
+/** Public booking API (/api/v1/b/*): no session; the manage-link token is the credential. */
+export async function bookingApi<T>(
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1/b${path}`, {
+      method: init.method ?? 'GET',
+      headers: init.body !== undefined ? { 'content-type': 'application/json' } : {},
+      ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+    });
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Network error');
+  }
+  const text = await res.text();
+  const body = text ? (JSON.parse(text) as unknown) : undefined;
+  if (!res.ok) {
+    const err = (body as Partial<ApiErrorBody> | undefined)?.error;
+    throw new ApiError(res.status, err?.code ?? 'INTERNAL', err?.message ?? res.statusText, err?.details);
+  }
+  return body as T;
+}
+
 const DEVICE_KEY = 'ds.device';
 const tokenKey = (qr: string) => `ds.guest.${qr}`;
 

@@ -10,9 +10,12 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
   web push, billing + GST invoice, alerts centre, audit viewer, e2e suite) — **Phase 1 complete** — and M5 (greet SLA
   engine, round-robin assignment, re-assignment, escalation, settings), M6 (edge vision service, signed edge events,
   cameras page with zone calibration, camera health, synthetic dev footage + eval), M7 (split bills, Razorpay
-  pay-at-table in test mode, departure/cleaning, reports) — **Phase 2 complete**. Demo scripts: `docs/MILESTONES.md`.
-- **Next:** Phase 3 plan drafted in `docs/PLAN-P3.md` (M8–M12) — **awaiting owner approval**; build nothing until then. Open items: real
-  footage for vision accuracy; Razorpay test keys + webhook URL for a sandbox run; go-live needs owner approval.
+  pay-at-table in test mode, departure/cleaning, reports) — **Phase 2 complete**. Phase 3 (`docs/PLAN-P3.md`,
+  approved 2026-11-05): M8 (guest profiles + DPDP export/erase/retention, returning-guest recognition, online
+  booking + manage link, table holds, no-shows, bookings/guests pages). Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M9 — WhatsApp (console channel until Meta is wired), booking messages, digital waitlist, wait-time
+  prediction, camera party-size estimate. Open items: real footage for vision accuracy; Razorpay test keys; Meta
+  WhatsApp Business account (paid, owner approved building against the console channel first).
 
 ## How we work
 
@@ -20,7 +23,7 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 2. One milestone at a time. After each: `pnpm lint && pnpm typecheck && pnpm test` (and `pytest` in Python
    services) must pass; then update this file and write a short demo script in the PR.
 3. Ask before adding any paid service or new infrastructure. Every secret goes in `.env.example` with a comment.
-4. Do not build Phase 3–4 features; leave extension points (see PLAN §11).
+4. Phase 3 is approved milestone by milestone (`docs/PLAN-P3.md`); do not build Phase 4 features (extension points only).
 5. Never run destructive DB commands (`prisma migrate reset`, `db push --force-reset`, `TRUNCATE`, seed) against
    anything but a local dev database, and never bypass Prisma's AI-agent consent guard without the owner's explicit OK.
 
@@ -47,6 +50,10 @@ apps/api            NestJS API (only component that changes table state)
                     invoice; online payments (reserve → provider order → capture) live here too
   src/payments      PaymentProvider interface + RazorpayProvider, guest pay endpoints (/g/bills, /g/payments*),
                     signed provider webhook (/payments/razorpay/webhook)
+  src/guests        guest profiles (org-wide, phone E.164), consent history, lookup, DPDP export/erase, retention sweep,
+                    visit stats recomputed on seating close (SeatingEvents hook)
+  src/reservations  bookings: availability (pure, in shared), staff + public /b/* endpoints, signed manage links,
+                    check-in through the state machine, hold/no-show sweep, opening hours
   src/reports       day report (managers): seatings, greet times, per-waiter SLA, sales by hour, payments
   src/tasks         staff task inbox (accept / done)
   src/notifications NotifierService (socket + web push for every new task/alert), PushService (VAPID)
@@ -54,9 +61,9 @@ apps/api            NestJS API (only component that changes table state)
                     snapshots, /edge/config + /edge/events (dedupe via EdgeEventReceipt), health sweep → alerts
   test/             integration tests (*.int.ts) against real Postgres + Redis
 apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /floor/qr, /staff, /menu, /kds/[station],
-                    /bills, /alerts, /audit, /reports, /cameras, /settings
+                    /bills, /alerts, /audit, /reports, /bookings, /guests, /cameras, /settings
   src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor/kds helpers
-apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, shared cart, orders, service buttons
+apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, cart, orders, pay; /b/[slug] booking; /b/manage/[token]
 apps/staff          Next.js 15 PWA on :3002 — device setup, PIN pad, tasks, tables (take order/approve/serve), clean, shift, push
 e2e/                Playwright full-service test against the built apps (`pnpm e2e`; wipes/seeds dinesense_e2e)
 packages/ui         shared TSX primitives (Button, Field, Sheet, VegMark, Money); apps transpile the source
@@ -119,6 +126,12 @@ gen:edge-schema`; the Python tests validate events against that JSON Schema and 
   capture is idempotent by provider order id; browser callback and webhook may both arrive. Webhooks are verified
   over the raw body. A split share is `Payment.shareKey`; shares come from the pure `computeSplit` (sums exactly).
   Money is never refused once taken: excess is recorded and audited as `bill.payment.excess` for a manual refund.
+- Guests: phone is the only identity (no faces). Personal data lives only on `Guest`; erasure nulls it and keeps the
+  row; audit entries for guest changes store field names, never values. Every read of a profile is audited.
+  Consents are per purpose (WHATSAPP/FEEDBACK/MARKETING), never pre-ticked, history in `GuestConsent`.
+- Bookings: availability is the pure `pickTables`/`listSlots` (packages/shared/src/booking, property-tested);
+  every booking write takes the `book:{outletId}` advisory lock and re-checks. Online bookings must hit an
+  available slot; staff can book any time/table. Public `/b/*` routes are rate-limited per IP and per phone.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -213,3 +226,8 @@ Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinese
 | 2026-11-05 | M7: pending online payment reused for 15 min (double taps share one order); blocks re-splitting meanwhile            | Accepted         |
 | 2026-11-05 | M7: excess online capture (bill settled meanwhile) is recorded + audited for refund, never dropped                   | Accepted         |
 | 2026-11-05 | M7: reports computed per local day by a pure `summarizeDay`; "missed" = assignment passed on without acknowledgement | Accepted         |
+| 2026-11-05 | P3 plan approved (owner); WhatsApp to be built against a console channel first (paid service)                        | Accepted (owner) |
+| 2026-11-05 | M8: guests org-wide by E.164 phone; erase = null PII + keep row; retention per org (default 730 days)                | Accepted         |
+| 2026-11-05 | M8: domain-event outbox deferred to M9 (first cross-process consumers); in-process `SeatingEvents` hook for stats    | Accepted         |
+| 2026-11-05 | M8: holds/no-shows via a 30 s idempotent sweep (not per-booking BullMQ jobs); walk-in on held table → alert          | Accepted         |
+| 2026-11-05 | M8: guest manage link = HMAC-signed booking id (no account); consent changes allowed from it                         | Accepted         |

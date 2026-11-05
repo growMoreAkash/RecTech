@@ -42,6 +42,7 @@ export function newTable(
     h: 80,
     rotation: 0,
     joinableWith: [],
+    onlineBookable: true,
   };
 }
 

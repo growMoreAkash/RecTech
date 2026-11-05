@@ -15,3 +15,4 @@ export * from './assignment';
 export * from './edge';
 export * from './split';
 export * from './reports';
+export * from './booking';

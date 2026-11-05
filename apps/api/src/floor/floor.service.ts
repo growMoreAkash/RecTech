@@ -26,6 +26,7 @@ const layoutSelect = {
   h: true,
   rotation: true,
   joinableWith: true,
+  onlineBookable: true,
   /** Printed on the table's QR code (public by design). */
   qrToken: true,
 } as const;
@@ -233,6 +234,7 @@ export class FloorService {
             h: t.h,
             rotation: t.rotation,
             joinableWith: [...(joins.get(id) ?? [])].sort(),
+            ...(t.onlineBookable !== undefined ? { onlineBookable: t.onlineBookable } : {}),
           },
         });
       }

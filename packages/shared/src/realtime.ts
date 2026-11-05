@@ -38,6 +38,10 @@ export interface SeatingSummary {
   } | null;
   slaBreachedAt: string | null;
   escalatedAt: string | null;
+  /** Set when the party came from a booking. */
+  reservationId?: string | null;
+  /** Returning-guest card for staff (null for anonymous walk-ins and erased profiles). */
+  guest?: { id: string; name: string | null; visits: number; allergies: string | null } | null;
 }
 
 export interface TableUpdatedPayload extends Envelope {
@@ -123,6 +127,7 @@ export interface BillUpdatedPayload extends Envelope {
 export interface ServerToClientEvents {
   'bill.updated': (p: BillUpdatedPayload) => void;
   'camera.updated': (p: Envelope & { outletId: string; cameraId: string }) => void;
+  'reservation.updated': (p: Envelope & { outletId: string; reservationId: string; status: string }) => void;
   'cart.updated': (p: CartUpdatedPayload) => void;
   'order.updated': (p: OrderUpdatedPayload) => void;
   'kds.changed': (p: KdsChangedPayload) => void;
