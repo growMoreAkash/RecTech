@@ -7,7 +7,8 @@ import { applyBps, gstForLine, roundHalfUp, roundOffToRupee } from './money';
  *   1. exclusive value = qty × unit price (or the tax-exclusive part when menu prices include GST)
  *   2. minus its share of the bill discount (allocated pro rata, exact to the paisa)
  *   3. service charge = % of the discounted value (it is part of the taxable supply, so it is taxed too)
- *   4. GST on (discounted value + service charge) at the line's rate, split CGST = SGST
+ *   4. GST per rate, on the rate's total taxable value (items + service charge), split CGST = SGST,
+ *      then distributed back to the lines pro rata (exact)
  * The total is rounded to the nearest rupee and the difference is shown as round-off.
  */
 
@@ -109,9 +110,6 @@ export function computeBill(input: readonly BillInputLine[], opts: BillOptions):
 
   const lines: BillLineResult[] = input.map((l, i) => {
     const taxable = values[i]! - discounts[i]!;
-    const sc = applyBps(taxable, opts.serviceChargeBps);
-    const g = gstForLine(taxable, l.taxRateBps);
-    const scg = gstForLine(sc, l.taxRateBps);
     return {
       key: l.key,
       quantity: l.quantity,
@@ -120,31 +118,29 @@ export function computeBill(input: readonly BillInputLine[], opts: BillOptions):
       valuePaise: values[i]!,
       discountPaise: discounts[i]!,
       taxableValuePaise: taxable,
-      serviceChargePaise: sc,
-      cgstPaise: g.cgstPaise,
-      sgstPaise: g.sgstPaise,
-      serviceChargeCgstPaise: scg.cgstPaise,
-      serviceChargeSgstPaise: scg.sgstPaise,
+      serviceChargePaise: applyBps(taxable, opts.serviceChargeBps),
+      cgstPaise: 0,
+      sgstPaise: 0,
+      serviceChargeCgstPaise: 0,
+      serviceChargeSgstPaise: 0,
     };
   });
 
-  const byRate = new Map<
-    number,
-    { taxRateBps: number; taxablePaise: number; cgstPaise: number; sgstPaise: number }
-  >();
-  for (const l of lines) {
-    const r = byRate.get(l.taxRateBps) ?? {
-      taxRateBps: l.taxRateBps,
-      taxablePaise: 0,
-      cgstPaise: 0,
-      sgstPaise: 0,
-    };
-    r.taxablePaise += l.taxableValuePaise + l.serviceChargePaise;
-    r.cgstPaise += l.cgstPaise + l.serviceChargeCgstPaise;
-    r.sgstPaise += l.sgstPaise + l.serviceChargeSgstPaise;
-    byRate.set(l.taxRateBps, r);
-  }
-  const taxByRate = [...byRate.values()].sort((a, b) => a.taxRateBps - b.taxRateBps);
+  // GST per rate on the rate's total taxable value — so the invoice's "CGST @ 2.5% on ₹X" line is exact —
+  // then distributed back to each line's item and service-charge parts (they sum exactly).
+  const rates = [...new Set(lines.map((l) => l.taxRateBps))].sort((a, b) => a - b);
+  const taxByRate = rates.map((taxRateBps) => {
+    const group = lines.filter((l) => l.taxRateBps === taxRateBps);
+    const parts = group.flatMap((l) => [l.taxableValuePaise, l.serviceChargePaise]);
+    const taxablePaise = parts.reduce((s, v) => s + v, 0);
+    const half = gstForLine(taxablePaise, taxRateBps).cgstPaise;
+    const shares = allocate(half, parts);
+    group.forEach((l, k) => {
+      l.cgstPaise = l.sgstPaise = shares[2 * k]!;
+      l.serviceChargeCgstPaise = l.serviceChargeSgstPaise = shares[2 * k + 1]!;
+    });
+    return { taxRateBps, taxablePaise, cgstPaise: half, sgstPaise: half };
+  });
   const serviceChargePaise = lines.reduce((s, l) => s + l.serviceChargePaise, 0);
   const taxablePaise = taxByRate.reduce((s, r) => s + r.taxablePaise, 0);
   const cgstPaise = taxByRate.reduce((s, r) => s + r.cgstPaise, 0);

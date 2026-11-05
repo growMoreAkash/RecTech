@@ -48,7 +48,8 @@ export class NotifierService {
     });
     const t = messages.en.push;
     const label = await this.tableLabel(alert.tableId);
-    const kind = (messages.en.alerts as Record<string, string>)[alert.type] ?? alert.type;
+    const entry = (messages.en.alerts as unknown as Record<string, unknown>)[alert.type];
+    const kind = typeof entry === 'string' ? entry : alert.type;
     await this.push.toUsers(
       managers.map((m) => m.userId),
       { title: kind, body: fill(t.alert, { table: label }), url: '/', tag: `alert-${alert.id}` },

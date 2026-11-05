@@ -1,0 +1,18 @@
+{
+  "name": "@dinesense/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-to-end browser tests of a full service (needs Postgres + Redis and built apps).",
+  "scripts": {
+    "e2e": "node scripts/prepare.mjs && playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@dinesense/config": "workspace:*",
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.20.5",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3"
+  }
+}

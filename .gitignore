@@ -16,3 +16,6 @@ services/vision/recordings/
 .DS_Store
 *.tsbuildinfo
 *.bundle
+e2e/test-results/
+e2e/playwright-report/
+dump.rdb

@@ -48,6 +48,18 @@ describe('computeBill', () => {
     expect(b.totalPaise).toBe(b.taxablePaise + b.cgstPaise + b.sgstPaise + b.roundOffPaise);
   });
 
+  it('computes GST on each rate total so the printed "@ 2.5% on ₹X" line is exact', () => {
+    // Caught on a real invoice screenshot: ₹930 of food − ₹50 discount = ₹880 at 5%; per-line rounding gave ₹22.01.
+    const b = computeBill([line('chicken', 42_000), line('naan', 9_000, 3), line('lassi', 12_000, 2)], {
+      ...opts,
+      discountPaise: 5_000,
+    });
+    expect(b.taxablePaise).toBe(88_000);
+    expect(b.cgstPaise).toBe(2_200);
+    expect(b.lines.reduce((s, l) => s + l.cgstPaise + l.serviceChargeCgstPaise, 0)).toBe(2_200);
+    expect(b.totalPaise).toBe(92_400);
+  });
+
   it('keeps a GST summary per rate for mixed-rate bills', () => {
     const b = computeBill([line('food', 10_000, 1, 500), line('drink', 10_000, 1, 1800)], {
       ...opts,
@@ -88,6 +100,14 @@ describe('computeBill', () => {
       expect(b.totalPaise).toBe(b.taxablePaise + b.cgstPaise + b.sgstPaise + b.roundOffPaise);
       expect(b.totalPaise % 100).toBe(0);
       expect(Math.abs(b.roundOffPaise)).toBeLessThanOrEqual(50);
+      for (const r of b.taxByRate) {
+        // Printed rate × printed base = printed tax (half-up), and the lines add up to it exactly.
+        expect(r.cgstPaise).toBe(Math.round((r.taxablePaise * r.taxRateBps) / 20_000));
+        const lineTax = b.lines
+          .filter((l) => l.taxRateBps === r.taxRateBps)
+          .reduce((s, l) => s + l.cgstPaise + l.serviceChargeCgstPaise, 0);
+        expect(lineTax).toBe(r.cgstPaise);
+      }
       expect(b.lines.every((l) => l.taxableValuePaise >= 0)).toBe(true);
     }
   });

@@ -95,3 +95,34 @@ Automated: `pnpm test` covers pricing/availability rules, the full QR → approv
 rejection, approval-off mode, waiter orders, role checks per item move, token separation and session expiry.
 The four-window Playwright run above was executed during development (no page errors); it joins the committed
 e2e suite in M4.
+
+## M4 — Staff app, billing, alerts, audit, e2e (done 2026-11-05) — **Phase 1 complete**
+
+- **Staff PWA** (`apps/staff`, :3002): a manager registers the phone/tablet once; then staff pick their name and
+  enter a PIN. Tabs: **Tasks** (accept / done / greet / clean / open table), **Tables** (my tables first; At table,
+  take order with options, approve or reject QR orders, mark served, print bill, guests left), **Clean** (busser
+  queue), **My shift** (check in, break, check out; turn on push alerts).
+- **Web push**: set `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (`pnpm dlx web-push generate-vapid-keys`). New tasks
+  go to the assignee, or to on-shift staff whose role handles them; alerts go to managers.
+- **Billing**: open bill → discount (with reason) and service charge → finalise (invoice number `SR/2026-27/00001`,
+  gap-free per financial year) → cash / UPI / card, split allowed → table becomes _Paid_. Printable, shareable
+  GST tax invoice (GSTIN, SAC, CGST/SGST by rate, round-off). Cash desk page with the day's collections.
+- **Alerts centre** with history and **audit log** viewer with field-level before/after.
+- **E2E** (`pnpm build && pnpm e2e`, also in CI): five browser contexts run a full service.
+
+Demo (dashboard + a phone for the staff app + a phone for the guest):
+
+1. `pnpm dev`. Open the staff app on a phone (http://<your-ip>:3002). Sign in once as the manager →
+   **Register device**. The PIN screen lists the team.
+2. Tap **Anil Sharma**, PIN **1001** → _My shift_ → **Check in** → **Turn on alerts** (needs VAPID keys).
+3. Dashboard (host): seat **T5**. Guest phone: scan T5's QR, order **Paneer Tikka**, **Place order**.
+4. Staff app **Tasks**: "Approve QR order — table T5" → **Open table** → **Approve**. Tap **At table (greet)**.
+5. Chef → **Kitchen → Tandoor**: tap the item twice (Cooking → Ready). Staff app: **Served** → T5 is _Served_.
+6. Guest: **Bill**. Cashier (`cashier@demo.dinesense.in`) → Floor → T5 → **Create bill** → enter a ₹50 discount
+   with a reason → **Apply** → **Finalise bill** → **Record payment** (Cash). T5 turns _Paid_.
+   **Print / share invoice** opens the tax invoice. **Bills** shows the day's collections by method.
+7. Staff app: T5 → **Guests left**. **Switch user** → **Lakshmi Pillai** (2002) → **Clean** → **Cleaned**. T5 is
+   _Vacant_ again.
+8. Manager → **Audit log**: every step above, who did it, with before/after. **Alerts**: open/acknowledged/resolved.
+
+Automated: 470 unit/integration tests (incl. a 500-bill randomised GST invariant sweep) and the e2e full service.
