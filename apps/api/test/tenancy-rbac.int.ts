@@ -74,6 +74,15 @@ describe('tenancy, RBAC and audit', () => {
     });
   });
 
+  it('rejects a settings ladder that makes no sense', async () => {
+    const r = await http()
+      .patch(`/api/v1/outlets/${a.outletId}/settings`)
+      .set(bearer(tokens.manager))
+      .send({ greetSlaSeconds: 600, escalateAfterSeconds: 300 })
+      .expect(400);
+    expect(r.body.error.details[0].path).toBe('escalateAfterSeconds');
+  });
+
   it('rejects unknown settings keys', async () => {
     await http()
       .patch(`/api/v1/outlets/${a.outletId}/settings`)

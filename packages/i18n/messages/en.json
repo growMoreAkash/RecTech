@@ -55,7 +55,8 @@
     "kitchen": "Kitchen",
     "bills": "Bills",
     "alertsCentre": "Alerts",
-    "audit": "Audit log"
+    "audit": "Audit log",
+    "settings": "Settings"
   },
   "login": {
     "title": "Sign in to DineSense",
@@ -129,7 +130,11 @@
     "forceApply": "Set state",
     "by": "by {name}",
     "camera": "camera",
-    "system": "system"
+    "system": "system",
+    "assigned": "Must greet",
+    "assignedTo": "{name} (attempt {attempt})",
+    "onTheWay": "on the way",
+    "waitingAck": "not yet acknowledged"
   },
   "seat": {
     "title": "Seat a party",
@@ -485,7 +490,9 @@
         "greet": "At table (greet)",
         "clean": "Cleaned",
         "openTable": "Open table"
-      }
+      },
+      "onMyWay": "On my way",
+      "acknowledged": "You're on it"
     },
     "tables": {
       "mine": "My tables",
@@ -614,6 +621,48 @@
       "DEVICE": "Staff device",
       "SYSTEM": "System",
       "GUEST": "Guest"
+    }
+  },
+  "settings": {
+    "title": "Outlet settings",
+    "save": "Save settings",
+    "saved": "Settings saved",
+    "managersOnly": "Only managers can change settings.",
+    "greet": {
+      "title": "Greet rule",
+      "hint": "When guests sit, a waiter must reach them in time; otherwise the table is assigned, re-assigned and escalated.",
+      "sla": "Greet within (minutes)",
+      "reassign": "Re-assign if not acknowledged within (minutes)",
+      "escalate": "Alert managers after (minutes)",
+      "mode": "Assignment mode",
+      "maxTables": "Default max tables per waiter",
+      "modes": {
+        "ROUND_ROBIN": "Round robin",
+        "LEAST_LOADED": "Least loaded",
+        "FIXED_SECTION": "Fixed section",
+        "ROUND_ROBINHint": "Next waiter in check-in order, in the table's section.",
+        "LEAST_LOADEDHint": "The waiter with the fewest tables; ties go round robin.",
+        "FIXED_SECTIONHint": "The waiter whose main section it is; then round robin."
+      }
+    },
+    "ordering": {
+      "title": "QR ordering",
+      "approval": "Waiter approves QR orders before the kitchen",
+      "qrGreets": "A QR order counts as the greet"
+    },
+    "billing": {
+      "title": "Billing",
+      "serviceCharge": "Service charge (%)",
+      "includeTax": "Menu prices include GST"
+    },
+    "camera": {
+      "title": "Cameras",
+      "hint": "Used by the vision service (Phase 2).",
+      "occupancy": "Seated after (seconds)",
+      "vacancy": "Empty after (seconds)",
+      "staffSeconds": "Staff at table for (seconds)",
+      "confidence": "Minimum confidence (0–1)",
+      "greet": "Camera may count a staff visit as the greet"
     }
   }
 }

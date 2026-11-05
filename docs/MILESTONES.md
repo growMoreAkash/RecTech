@@ -126,3 +126,34 @@ Demo (dashboard + a phone for the staff app + a phone for the guest):
 8. Manager → **Audit log**: every step above, who did it, with before/after. **Alerts**: open/acknowledged/resolved.
 
 Automated: 470 unit/integration tests (incl. a 500-bill randomised GST invariant sweep) and the e2e full service.
+
+## M5 — The 5-minute rule: greet SLA, round robin, escalation (done 2026-11-05)
+
+- When guests sit, a timer starts. If nobody taps **At table** within the greet SLA (default 5 min), the table is
+  assigned to the next on-shift waiter in its section (round robin in check-in order; or least-loaded / fixed
+  section), who gets a GREET task and a push. Waiters on break or at their table limit are skipped; if nobody covers
+  the section, anyone on shift is picked.
+- If the waiter doesn't tap **On my way** within the re-assign window (default 2 min), the table moves to the next
+  waiter. At the escalation time (default 10 min) managers get a critical alert and a push. A greet by anyone stops
+  everything and resolves the SLA alerts.
+- Floor map: amber avatar = assigned, waiting for "On my way"; dark = acknowledged or serving. The drawer shows
+  "Must greet: name (attempt n) · on the way / not yet acknowledged".
+- **Settings** page (managers): greet / re-assign / escalate times, assignment mode, max tables, QR rules, service
+  charge, camera thresholds.
+
+Demo (dashboard + staff app on a phone):
+
+1. Manager → **Settings**: set _Greet within_ to **0.5** min (30 s) for the demo → **Save**.
+2. Staff app: sign in as **Anil Sharma** (1001) and **Sunita Reddy** (1002) on two phones (or one after the other);
+   each taps **My shift → Check in** (check-in order = rotation order).
+3. Host seats **T1** (Main Hall). Watch the countdown on the floor map; at 0:30 it turns red, T1 gets Anil's
+   initials in amber, and Anil's phone shows "Greet table T1" (with a buzz if alerts are on).
+4. Do nothing for 2 minutes: the table passes to Sunita (attempt 2); the Alerts centre shows _Greet reassigned_.
+5. Sunita taps **On my way** (avatar turns dark), then **At table (greet)**: T1 is _Greeted_, alerts resolve.
+6. Seat another table and ignore it for 10 minutes (or set _Alert managers after_ to 1.5 min): managers get the
+   critical _Escalated_ alert. Put both waiters on break: the next table raises _No waiter available_.
+7. Set the greet time back to 5 minutes.
+
+Automated: waiter-selection unit tests (fairness over 100 seatings, breaks, limits, fallback, modes), fake-clock
+integration tests of the whole ladder (incl. idempotency and two tables breaching at once), and an e2e test where a
+real 30-second timer assigns the table on the live stack.

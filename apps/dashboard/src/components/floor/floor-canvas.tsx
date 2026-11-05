@@ -162,11 +162,17 @@ export default function FloorCanvas({
                     fill={level === 'none' || level === 'ok' ? style.text : SLA_COLORS[level]}
                   />
                 ) : null}
-                {seating?.servingWaiter ? (
+                {seating?.servingWaiter || seating?.assignment ? (
                   <Group x={t.w - 6} y={6}>
-                    <Circle radius={11} fill="#0f172a" />
+                    {/* Solid = serving or acknowledged; amber = assigned, waiting for "On my way". */}
+                    <Circle
+                      radius={11}
+                      fill={
+                        seating.servingWaiter || seating.assignment?.acknowledgedAt ? '#0f172a' : '#d97706'
+                      }
+                    />
                     <Text
-                      text={initials(seating.servingWaiter.name)}
+                      text={initials((seating.servingWaiter ?? seating.assignment!.waiter).name)}
                       x={-11}
                       y={-6}
                       width={22}

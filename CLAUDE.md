@@ -7,9 +7,9 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
 - **Plan:** approved 2026-11-05.
 - **Done:** M0 (tooling), M1 (schema, seed, auth, tenancy, RBAC, audit), M2 (state machine, floor map & editor,
   staff & shifts, Socket.IO, dashboard), M3 (menu, guest QR app, shared cart, order approval, KDS), M4 (staff PWA,
-  web push, billing + GST invoice, alerts centre, audit viewer, e2e suite). **Phase 1 is complete.**
-  Demo scripts: `docs/MILESTONES.md`.
-- **Next milestone:** M5 — greet SLA timers, round-robin assignment, escalation (Phase 2).
+  web push, billing + GST invoice, alerts centre, audit viewer, e2e suite) — **Phase 1 complete** — and M5 (greet SLA
+  engine, round-robin assignment, re-assignment, escalation, settings). Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M6 — vision service (dev-mode videos), edge events API, zone calibration, camera health.
 
 ## How we work
 
@@ -31,7 +31,8 @@ apps/api            NestJS API (only component that changes table state)
   src/audit         AuditService (call inside the same transaction as the change) + list endpoint
   src/outlets       outlets + OutletSettings
   src/devices       staff terminal / KDS device registration
-  src/table-state   TableStateService (only writer of table state), TableViews, SlaScheduler (no-op until M5)
+  src/table-state   TableStateService (only writer of table state), TableViews, SlaScheduler interface
+  src/sla           SlaEngine.evaluate (idempotent greet rule), BullMQ scheduler + reconcile sweep, assignment ack
   src/floor         floor snapshot, bulk floor-plan save, sections
   src/staff         staff, shifts, check-in sequence, breaks
   src/alerts        alerts list / ack / resolve
@@ -44,7 +45,7 @@ apps/api            NestJS API (only component that changes table state)
   src/notifications NotifierService (socket + web push for every new task/alert), PushService (VAPID)
   test/             integration tests (*.int.ts) against real Postgres + Redis
 apps/dashboard      Next.js 15 (App Router): /login, /floor, /floor/edit, /floor/qr, /staff, /menu, /kds/[station],
-                    /bills, /alerts, /audit
+                    /bills, /alerts, /audit, /settings
   src/lib           api client (silent refresh), session, live socket sync, queries, pure floor/editor/kds helpers
 apps/guest          Next.js 15 mobile PWA on :3001 — /t/[qrToken]: menu, shared cart, orders, service buttons
 apps/staff          Next.js 15 PWA on :3002 — device setup, PIN pad, tasks, tables (take order/approve/serve), clean, shift, push
@@ -61,7 +62,8 @@ infra/              docker-compose.yml, Dockerfiles
 - `apps/api` (NestJS + Prisma + BullMQ + Socket.IO) is the **only** component that changes table state.
 - Apps talk REST to the API and receive live updates over Socket.IO. The edge vision service only sends events.
 - Table state machine: pure reducer in `packages/shared/src/table-machine`; side effects in `TableStateService`.
-- Greet SLA: BullMQ delayed jobs + a 30 s reconciler; job handlers always re-check the DB.
+- Greet SLA: `SlaEngine.evaluate(seating, now)` is the single, idempotent decision (breach → assign → re-assign →
+  escalate) under a per-seating advisory lock; BullMQ delayed jobs only decide _when_ it runs, plus a 30 s sweep.
 - Video never leaves the restaurant. No face recognition. No video storage.
 
 ## Conventions
@@ -94,6 +96,9 @@ infra/              docker-compose.yml, Dockerfiles
 - Billing: GST is computed per rate on the rate's total taxable value (so "CGST @ x% on ₹X" prints exactly) and
   distributed back to lines; invoice numbers are allocated inside the finalise transaction (gap-free).
 - New tasks/alerts must go through `NotifierService` after commit (socket + push); it never throws into the caller.
+- SLA logic is tested with explicit `now` values (fake clock) against the engine; one test waits for a real timer.
+- Waiter selection is pure (`packages/shared/src/assignment`); the API only builds candidates and holds the
+  `rr:{outletId}` advisory lock while picking and advancing the cursor.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
 
 ## Commands
@@ -168,3 +173,10 @@ Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinese
 | 2026-11-05 | M4: unassigned tasks push to checked-in, on-shift, not-on-break staff whose role handles the task type             | Accepted         |
 | 2026-11-05 | M4: staff terminals are registered once by a manager; PIN screen lists names only; push follows the signed-in user | Accepted         |
 | 2026-11-05 | M4: e2e runs built standalone apps on normal ports against `dinesense_e2e` (name must contain "e2e")               | Accepted         |
+| 2026-11-05 | M5: one `evaluate` job type with deterministic ids per deadline instead of three job families; cancel = no-op      | Accepted         |
+| 2026-11-05 | M5: waiters with no sections cover every section; outlet-wide fallback uses its own cursor (`*`)                   | Accepted         |
+| 2026-11-05 | M5: tried waiters are skipped on re-assignment until everyone has been tried, then the rotation starts again       | Accepted         |
+| 2026-11-05 | M5: acknowledging (On my way / accepting the GREET task) stops re-assignment; only a greet stops escalation        | Accepted         |
+| 2026-11-05 | M5: assignment mode is per outlet (per-shift override stored but not yet used by the engine)                       | Accepted         |
+| 2026-11-05 | M5: managers' phones buzz only for escalation, no waiter available and left-without-paying; the rest is on screen  | Accepted         |
+| 2026-11-05 | M5: settings ladder validated server-side (escalation after the greet deadline; vacancy ≥ occupancy)               | Accepted         |

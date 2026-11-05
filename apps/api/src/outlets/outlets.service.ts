@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import type { OutletSettingsInput } from '@dinesense/shared';
 import { AuditService } from '../audit/audit.service';
 import { AppError } from '../common/app-error';
@@ -37,6 +37,24 @@ export class OutletsService {
     return this.prisma.$transaction(async (tx) => {
       const before = await tx.outletSettings.findFirst({ where: { outletId, organizationId: ctx.user.org } });
       if (!before) throw AppError.notFound('Outlet settings');
+      const merged = { ...before, ...patch };
+      // The ladder must make sense: greet deadline < escalation, and re-assignment fits before escalation.
+      if (merged.escalateAfterSeconds <= merged.greetSlaSeconds) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          HttpStatus.BAD_REQUEST,
+          'Escalation must come after the greet deadline',
+          [{ path: 'escalateAfterSeconds', message: 'Must be longer than greetSlaSeconds' }],
+        );
+      }
+      if (merged.vacancyConfirmSeconds < merged.occupancyConfirmSeconds) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          HttpStatus.BAD_REQUEST,
+          'Vacancy confirmation should not be shorter than occupancy',
+          [{ path: 'vacancyConfirmSeconds', message: 'Must be at least occupancyConfirmSeconds' }],
+        );
+      }
       const after = await tx.outletSettings.update({ where: { outletId }, data: patch });
       await this.audit.record(
         ctx,

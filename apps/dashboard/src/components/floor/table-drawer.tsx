@@ -109,6 +109,20 @@ function DrawerBody({ table, floor }: { table: FloorTable; floor: FloorSnapshot 
             </dd>
             <dt className="text-slate-500">{t('drawer.waiter')}</dt>
             <dd>{seating.servingWaiter?.name ?? t('drawer.noWaiter')}</dd>
+            {seating.assignment && !seating.greetedAt ? (
+              <>
+                <dt className="text-slate-500">{t('drawer.assigned')}</dt>
+                <dd>
+                  {t('drawer.assignedTo', {
+                    name: seating.assignment.waiter.name,
+                    attempt: seating.assignment.attempt,
+                  })}{' '}
+                  <span className={seating.assignment.acknowledgedAt ? 'text-emerald-700' : 'text-amber-700'}>
+                    · {seating.assignment.acknowledgedAt ? t('drawer.onTheWay') : t('drawer.waitingAck')}
+                  </span>
+                </dd>
+              </>
+            ) : null}
             {seating.notes ? (
               <>
                 <dt className="text-slate-500">{t('drawer.notes')}</dt>

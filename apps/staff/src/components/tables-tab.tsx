@@ -16,7 +16,11 @@ export function TablesTab({ outletId, me, roles }: { outletId: string; me: Me; r
   const floor = useFloor(outletId);
   const [selected, setSelected] = useState<string | null>(null);
   const tables = floor.data?.tables ?? [];
-  const mine = tables.filter((x) => x.live.seating?.servingWaiter?.id === me.id);
+  const mine = tables.filter(
+    (x) =>
+      x.live.seating?.servingWaiter?.id === me.id ||
+      (!x.live.seating?.greetedAt && x.live.seating?.assignment?.waiter.id === me.id),
+  );
   const table = tables.find((x) => x.id === selected) ?? null;
 
   const row = (x: (typeof tables)[number]) => (

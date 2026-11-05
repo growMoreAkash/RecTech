@@ -8,6 +8,7 @@ import {
   LogOut,
   PencilRuler,
   ReceiptIndianRupee,
+  Settings,
   Siren,
   UtensilsCrossed,
   Users,
@@ -49,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     },
     { href: '/alerts', label: t('nav.alertsCentre'), icon: Siren, show: can('OWNER', 'MANAGER', 'HOST') },
     { href: '/audit', label: t('nav.audit'), icon: History, show: can('OWNER', 'MANAGER') },
+    { href: '/settings', label: t('nav.settings'), icon: Settings, show: can('OWNER', 'MANAGER') },
   ];
 
   return (

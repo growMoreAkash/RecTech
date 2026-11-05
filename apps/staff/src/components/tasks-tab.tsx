@@ -67,6 +67,15 @@ export function TasksTab({ outletId, me, roles }: { outletId: string; me: Me; ro
                     {t('accept')}
                   </Button>
                 ) : null}
+                {/* Greet assigned to me: "On my way" acknowledges it so it is not passed to someone else. */}
+                {task.type === 'GREET' && task.mine && task.status === 'OPEN' ? (
+                  <Button size="sm" variant="secondary" onClick={() => accept.mutate(task)}>
+                    {t('onMyWay')}
+                  </Button>
+                ) : null}
+                {task.type === 'GREET' && task.mine && task.status === 'ACCEPTED' ? (
+                  <span className="text-xs text-emerald-700">{t('acknowledged')}</span>
+                ) : null}
               </div>
               <div className="mt-2 flex gap-2">
                 {a === 'openTable' ? (
