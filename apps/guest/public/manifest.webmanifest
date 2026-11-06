@@ -1,0 +1,9 @@
+{
+  "name": "DineSense — Order at your table",
+  "short_name": "DineSense",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffbf5",
+  "theme_color": "#c2410c",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

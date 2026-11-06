@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+/* Shared components live outside this app; let Tailwind see their classes. */
+@source '../../../../packages/ui/src';
+
+@theme {
+  --color-brand: #c2410c;
+  --color-brand-fg: #ffffff;
+  --font-sans: ui-sans-serif, system-ui, 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* Visible focus for keyboard users everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}

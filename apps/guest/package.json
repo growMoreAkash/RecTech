@@ -1,0 +1,38 @@
+{
+  "name": "@dinesense/guest",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "node .next/standalone/apps/guest/server.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dinesense/i18n": "workspace:*",
+    "@dinesense/shared": "workspace:*",
+    "@dinesense/ui": "workspace:*",
+    "@tanstack/react-query": "5.106.0",
+    "lucide-react": "1.68.0",
+    "next": "15.5.29",
+    "next-intl": "4.14.9",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
+    "socket.io-client": "4.8.4"
+  },
+  "devDependencies": {
+    "@dinesense/config": "workspace:*",
+    "@next/eslint-plugin-next": "15.5.29",
+    "@tailwindcss/postcss": "4.3.4",
+    "@types/node": "22.20.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "tailwindcss": "4.3.4",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

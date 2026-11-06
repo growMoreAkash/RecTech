@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@source '../../../../packages/ui/src';
+
+@theme {
+  --color-brand: #c2410c;
+  --color-brand-fg: #ffffff;
+  --font-sans: ui-sans-serif, system-ui, 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+}
+
+body {
+  @apply bg-[#fffbf5] text-slate-900 antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}

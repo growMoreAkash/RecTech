@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+dist
+.next
+.turbo
+coverage
+**/prisma/migrations/**
+.pytest_cache
+.mypy_cache
+.ruff_cache
+services/vision/.venv

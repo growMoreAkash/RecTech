@@ -1,0 +1,46 @@
+{
+  "name": "@dinesense/shared",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./edge-signing": {
+      "types": "./dist/edge/signing.d.ts",
+      "default": "./dist/edge/signing.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "edge-signing": [
+        "dist/edge/signing.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "gen:edge-schema": "pnpm build && node scripts/gen-edge-schema.cjs && prettier --write ../../services/vision/dinesense_vision/contracts/edge-contracts.json"
+  },
+  "dependencies": {
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@dinesense/config": "workspace:*",
+    "@types/node": "22.20.5",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7",
+    "zod-to-json-schema": "3.25.2"
+  }
+}

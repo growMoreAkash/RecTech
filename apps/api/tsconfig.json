@@ -1,0 +1,13 @@
+{
+  "extends": "@dinesense/config/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": false,
+    "strictPropertyInitialization": false,
+    "types": ["node"]
+  },
+  "include": ["src", "test", "prisma/*.ts", "vitest.config.ts", "prisma.config.ts"]
+}

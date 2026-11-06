@@ -1,0 +1,167 @@
+"""One camera's processing: detect → posture → track → zones → occupancy / staff presence / dirty table → events.
+
+The same pipeline runs live (worker.py) and in `ds-vision eval`, so accuracy numbers describe production
+behaviour.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from .arrivals import ArrivalGrouper
+from .detect import Detection, Detector
+from .detect.base import Frame
+from .dirty import DirtyCheck
+from .events import party_arrived, table_event
+from .models import CameraConfig, EdgeSettings
+from .occupancy import CountChanged, OccupancyTracker, Occupied, Vacated
+from .posture import AspectRatioPosture, PostureEstimator
+from .staff import StaffPresence
+from .track import IouTracker
+from .zones import anchor, centre, point_in_polygon, zone_of
+
+
+@dataclass
+class FrameResult:
+    events: list[dict[str, Any]] = field(default_factory=list)
+    detections: list[Detection] = field(default_factory=list)
+    #: table id → number of seated people seen in its zone on this frame
+    counts: dict[str, int] = field(default_factory=dict)
+
+
+class CameraPipeline:
+    def __init__(
+        self,
+        camera: CameraConfig,
+        settings: EdgeSettings,
+        detector: Detector,
+        posture: PostureEstimator | None = None,
+        min_confidence: float = 0.35,
+    ) -> None:
+        self.camera = camera
+        self.detector = detector
+        self.posture = posture or AspectRatioPosture()
+        self.min_confidence = min_confidence
+        self.arrivals = ArrivalGrouper()
+        self.tracker = IouTracker()
+        self.tables = {
+            z.table_id: OccupancyTracker(settings.occupancy_confirm_seconds, settings.vacancy_confirm_seconds)
+            for z in camera.zones
+        }
+        self.staff = {z.table_id: StaffPresence(settings.staff_present_seconds) for z in camera.zones}
+        self.dirty = {z.table_id: DirtyCheck(settings.dirty_confirm_seconds) for z in camera.zones}
+
+    def occupied(self) -> dict[str, bool]:
+        return {t: occ.occupied for t, occ in self.tables.items()}
+
+    def process(self, frame: Frame, now: float) -> FrameResult:
+        h, w = frame.shape[:2]
+        found = [d for d in self.detector.detect(frame) if d.confidence >= self.min_confidence]
+        detections = [d for d in found if d.label == "person"]
+        tableware: dict[str, list[tuple[str, float]]] = {t: [] for t in self.tables}
+        for d in found:
+            if d.label == "person":
+                continue
+            c = centre(d, w, h)
+            table = next((z.table_id for z in self.camera.zones if point_in_polygon(c, z.polygon)), None)
+            if table is not None:
+                tableware[table].append((d.label, d.confidence))
+        tracks = self.tracker.update(detections, now)
+        door_events: list[dict[str, Any]] = []
+        seated: dict[str, list[float]] = {t: [] for t in self.tables}
+        standing: dict[str, list[tuple[int, float]]] = {t: [] for t in self.tables}
+        if self.camera.door:
+            door = self.camera.door
+            for arrival in self.arrivals.update(
+                now,
+                [(tr.id, point_in_polygon(anchor(tr.detection, w, h), door), tr.detection.confidence) for tr in tracks],
+            ):
+                door_events.append(
+                    party_arrived(
+                        camera_id=self.camera.id,
+                        at=arrival.at,
+                        count=arrival.count,
+                        track_ids=list(arrival.track_ids),
+                        confidence=arrival.confidence,
+                    )
+                )
+        for tr in tracks:
+            table = zone_of(tr.detection, self.camera.zones, w, h)
+            if table is None:
+                continue
+            if self.posture.posture(tr.detection) == "seated":
+                seated[table].append(tr.detection.confidence)
+            else:
+                standing[table].append((tr.id, tr.detection.confidence))
+
+        result = FrameResult(detections=detections, counts={t: len(c) for t, c in seated.items()})
+        result.events.extend(door_events)
+        cam = self.camera.id
+        for table, occ in self.tables.items():
+            confs = seated[table]
+            was_occupied = occ.occupied
+            for ch in occ.update(now, len(confs), sum(confs) / len(confs) if confs else 0.0):
+                if isinstance(ch, Occupied):
+                    result.events.append(
+                        table_event(
+                            "table.occupied",
+                            camera_id=cam,
+                            table_id=table,
+                            at=ch.at,
+                            confidence=ch.confidence,
+                            payload={"guestCount": ch.guest_count, "dwellSeconds": round(ch.dwell_seconds, 1)},
+                        )
+                    )
+                elif isinstance(ch, Vacated):
+                    result.events.append(
+                        table_event(
+                            "table.vacated",
+                            camera_id=cam,
+                            table_id=table,
+                            at=ch.at,
+                            confidence=ch.confidence,
+                            payload={"emptySeconds": round(ch.empty_seconds, 1)},
+                        )
+                    )
+                elif isinstance(ch, CountChanged):
+                    result.events.append(
+                        table_event(
+                            "table.guest_count_changed",
+                            camera_id=cam,
+                            table_id=table,
+                            at=ch.at,
+                            confidence=ch.confidence,
+                            payload={"guestCount": ch.guest_count, "previous": ch.previous},
+                        )
+                    )
+            if was_occupied and not occ.occupied:
+                self.staff[table].reset()
+            dirty = self.dirty[table].update(now, tableware[table], len(confs), occ.occupied)
+            if dirty is not None:
+                result.events.append(
+                    table_event(
+                        "table.dirty",
+                        camera_id=cam,
+                        table_id=table,
+                        at=dirty.at,
+                        confidence=dirty.confidence,
+                        payload={
+                            "seconds": round(dirty.seconds, 1),
+                            "objects": max(1, min(100, dirty.objects)),
+                            "classes": list(dirty.classes),
+                        },
+                    )
+                )
+            for sp in self.staff[table].update(now, standing[table], occ.occupied):
+                result.events.append(
+                    table_event(
+                        "table.staff_present",
+                        camera_id=cam,
+                        table_id=table,
+                        at=sp.at,
+                        confidence=sp.confidence,
+                        payload={"seconds": round(sp.seconds, 1), "trackId": sp.track_id},
+                    )
+                )
+        return result

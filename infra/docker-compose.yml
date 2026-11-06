@@ -1,0 +1,68 @@
+# Local stack. From the repo root:
+#   docker compose -f infra/docker-compose.yml up -d postgres redis     # infra only (run apps with pnpm dev)
+#   docker compose -f infra/docker-compose.yml up -d --build            # everything built so far
+#   docker compose -f infra/docker-compose.yml --profile edge up -d vision   # edge vision (on the outlet's mini-PC)
+name: dinesense
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dinesense
+    ports: ['5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 10
+
+  api:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    env_file: [../.env]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dinesense
+      REDIS_URL: redis://redis:6379
+    ports: ['4000:4000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: infra/docker/dashboard.Dockerfile
+      args:
+        API_URL: http://api:4000
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports: ['3000:3000']
+    depends_on: [api]
+
+  vision:
+    profiles: [edge]
+    build: { context: .., dockerfile: infra/docker/vision.Dockerfile }
+    # DS_API_URL, DS_DEVICE_ID, DS_DEVICE_SECRET (dashboard → Cameras → Register edge device).
+    env_file: [../.env]
+    volumes:
+      - visiondata:/app/data
+      # Dev mode: put sample videos here and use file:///samples/<name>.mp4 as the camera URL.
+      - ../services/vision/samples:/samples:ro
+    restart: unless-stopped
+
+volumes:
+  visiondata:
+  pgdata:
+  redisdata:

@@ -14,3 +14,11 @@ services/vision/samples/*.mp4
 services/vision/recordings/
 *.sqlite
 .DS_Store
+*.tsbuildinfo
+*.bundle
+e2e/test-results/
+e2e/playwright-report/
+dump.rdb
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

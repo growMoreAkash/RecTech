@@ -1,0 +1,1303 @@
+// DineSense data model. See docs/PLAN.md §3.
+// Conventions:
+// - Every tenant row carries organizationId (+ outletId). FKs are enforced through outletId → Outlet;
+//   organizationId is denormalised for cheap tenant scoping and must equal outlet.organizationId.
+// - Money in paise (Int), rates in basis points (Int). Timestamps are timestamptz (UTC).
+// - Enums MUST match packages/shared/src/enums.ts (enforced by a test).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Enums ─────────────
+enum Role {
+  OWNER
+  MANAGER
+  HOST
+  WAITER
+  BUSSER
+  CHEF
+  CASHIER
+}
+
+enum TableStatus {
+  VACANT
+  RESERVED
+  OCCUPIED
+  GREETED
+  ORDERED
+  SERVED
+  BILL_REQUESTED
+  PAID
+  NEEDS_CLEANING
+  OUT_OF_SERVICE
+}
+
+enum TableShape {
+  RECT
+  SQUARE
+  ROUND
+  BOOTH
+}
+
+enum AssignmentMode {
+  ROUND_ROBIN
+  LEAST_LOADED
+  FIXED_SECTION
+}
+
+enum SeatingSource {
+  WALK_IN
+  RESERVATION
+  WAITLIST
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  SEATED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ReservationChannel {
+  ONLINE
+  STAFF
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  SEATED
+  LEFT
+  REMOVED
+}
+
+enum SeatingStatus {
+  OPEN
+  CLOSED
+}
+
+enum AssignmentReason {
+  ROUND_ROBIN
+  LEAST_LOADED
+  FIXED_SECTION
+  MANUAL
+  ESCALATION
+}
+
+enum EventSource {
+  CAMERA
+  STAFF
+  SYSTEM
+  GUEST
+}
+
+enum TaskType {
+  GREET
+  CALL_WAITER
+  WATER
+  CUTLERY
+  BILL
+  SERVE
+  CLEAN
+  APPROVE_ORDER
+  CHECK_TABLE
+  FIRE_COURSE
+  OFFER_DESSERT
+  SERVICE_RECOVERY
+}
+
+enum TaskStatus {
+  OPEN
+  ACCEPTED
+  DONE
+  CANCELLED
+  EXPIRED
+}
+
+enum VegType {
+  VEG
+  NON_VEG
+  EGG
+}
+
+enum OrderSource {
+  QR
+  WAITER
+}
+
+enum OrderStatus {
+  PENDING_APPROVAL
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  /// Course pacing: ordered but not sent to the kitchen yet.
+  HELD
+  QUEUED
+  COOKING
+  READY
+  SERVED
+  VOID
+}
+
+enum BillStatus {
+  OPEN
+  FINALIZED
+  PAID
+  VOID
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  RAZORPAY
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum AlertType {
+  SLA_BREACH
+  REASSIGNED
+  ESCALATION
+  NO_ELIGIBLE_WAITER
+  CALL_WAITER
+  LONG_WAIT
+  CAMERA_OFFLINE
+  EDGE_OFFLINE
+  LEFT_WITHOUT_PAYING
+  SEATED_AT_DIRTY_TABLE
+  RESERVED_TABLE_TAKEN
+  IDLE_TABLE
+  GUEST_UNHAPPY
+}
+
+/// Course of a menu category, used for pacing.
+enum Course {
+  DRINK
+  STARTER
+  MAIN
+  DESSERT
+  OTHER
+}
+
+enum FeedbackKind {
+  MID_MEAL
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum DeviceKind {
+  STAFF_TERMINAL
+  KDS
+}
+
+// ───────────── Tenancy ─────────────
+model Organization {
+  id                 String   @id @default(cuid())
+  name               String
+  createdAt          DateTime @default(now())
+  /// DPDP: personal data of guests inactive this long is erased (0 = keep until a deletion request).
+  guestRetentionDays Int      @default(730)
+
+  outlets Outlet[]
+  users   User[]
+  guests  Guest[]
+}
+
+model Outlet {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  timezone       String    @default("Asia/Kolkata")
+  currency       String    @default("INR")
+  gstin          String?
+  legalName      String?
+  address        String?
+  invoicePrefix  String    @default("INV")
+  /// Public booking page: /b/{slug}.
+  slug           String    @unique
+  createdAt      DateTime  @default(now())
+  archivedAt     DateTime?
+
+  organization     Organization       @relation(fields: [organizationId], references: [id])
+  settings         OutletSettings?
+  sections         Section[]
+  tables           Table[]
+  stations         KitchenStation[]
+  roles            UserOutletRole[]
+  shifts           Shift[]
+  staffDevices     StaffDevice[]
+  rrCursors        RoundRobinCursor[]
+  edgeDevices      EdgeDevice[]
+  cameras          Camera[]
+  tableZones       TableZone[]
+  seatings         Seating[]
+  assignments      Assignment[]
+  openingHours     OutletHours[]
+  reservations     Reservation[]
+  waitlist         WaitlistEntry[]
+  doorArrivals     DoorArrival[]
+  tableEvents      TableEvent[]
+  tasks            Task[]
+  alerts           Alert[]
+  menuCategories   MenuCategory[]
+  menuItems        MenuItem[]
+  modifierGroups   ModifierGroup[]
+  guestSessions    GuestSession[]
+  orders           Order[]
+  orderItems       OrderItem[]
+  bills            Bill[]
+  invoiceSequences InvoiceSequence[]
+  payments         Payment[]
+  feedback         Feedback[]
+  auditLogs        AuditLog[]
+
+  @@index([organizationId])
+}
+
+model OutletSettings {
+  outletId                  String         @id
+  organizationId            String
+  greetSlaSeconds           Int            @default(300)
+  reassignAfterSeconds      Int            @default(120)
+  escalateAfterSeconds      Int            @default(600)
+  assignmentMode            AssignmentMode @default(ROUND_ROBIN)
+  occupancyConfirmSeconds   Int            @default(30)
+  vacancyConfirmSeconds     Int            @default(90)
+  staffPresentSeconds       Int            @default(10)
+  staffPresentMinConfidence Float          @default(0.7)
+  cameraGreetEnabled        Boolean        @default(false)
+  qrOrderSatisfiesGreet     Boolean        @default(false)
+  qrOrderNeedsApproval      Boolean        @default(true)
+  serviceChargeBps          Int            @default(0)
+  pricesIncludeTax          Boolean        @default(false)
+  defaultMaxTables          Int            @default(4)
+  /// Guests may pay from the QR page (needs a configured payment provider).
+  onlinePaymentsEnabled     Boolean        @default(false)
+  bookingEnabled            Boolean        @default(false)
+  bookingSlotMinutes        Int            @default(30)
+  bookingLeadMinutes        Int            @default(60)
+  bookingHorizonDays        Int            @default(30)
+  bookingMaxPartySize       Int            @default(8)
+  bookingLastSeatingMinutes Int            @default(60)
+  bookingMaxCoversPerSlot   Int            @default(0)
+  turnSmallMinutes          Int            @default(75)
+  turnMediumMinutes         Int            @default(90)
+  turnLargeMinutes          Int            @default(120)
+  reservationHoldMinutes    Int            @default(20)
+  noShowGraceMinutes        Int            @default(15)
+  /// WhatsApp reminder this long before a booking (0 = none).
+  bookingReminderMinutes    Int            @default(120)
+  waitlistEnabled           Boolean        @default(false)
+  /// A notified party's table is held this long.
+  waitlistHoldMinutes       Int            @default(10)
+  waitlistMaxPartySize      Int            @default(10)
+  /// Nudge the serving waiter after this long without a staff touch (0 = off).
+  idleNudgeMinutes          Int            @default(15)
+  /// Alert managers after this long without a staff touch.
+  idleAlertMinutes          Int            @default(25)
+  /// Hold mains until starters are served.
+  pacingEnabled             Boolean        @default(false)
+  /// Prompt "fire mains" this long after the last starter is served.
+  fireMainsAfterMinutes     Int            @default(8)
+  /// Send held mains to the kitchen anyway after this long (0 = never).
+  autoFireMinutes           Int            @default(20)
+  /// Prompt "offer dessert" this long after the last main is served (0 = off).
+  dessertOfferMinutes       Int            @default(15)
+  /// Ask QR guests "How's everything?" this long after the first item is served (0 = off).
+  midMealCheckMinutes       Int            @default(12)
+  /// Cups/plates on an empty table this long → needs cleaning.
+  dirtyConfirmSeconds       Int            @default(20)
+  updatedAt                 DateTime       @updatedAt
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+}
+
+// ───────────── Floor ─────────────
+model Section {
+  id             String    @id @default(cuid())
+  organizationId String
+  outletId       String
+  name           String
+  color          String?
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+
+  outlet Outlet  @relation(fields: [outletId], references: [id])
+  tables Table[]
+
+  @@index([outletId])
+}
+
+model Table {
+  id              String      @id @default(cuid())
+  organizationId  String
+  outletId        String
+  sectionId       String
+  label           String
+  capacity        Int
+  minCapacity     Int         @default(1)
+  shape           TableShape  @default(RECT)
+  x               Float
+  y               Float
+  w               Float
+  h               Float
+  rotation        Float       @default(0)
+  /// Table ids this table may be joined with (validated in app).
+  joinableWith    String[]
+  /// Offered on the public booking page (staff can book any table).
+  onlineBookable  Boolean     @default(true)
+  /// Guest QR → /t/{qrToken}
+  qrToken         String      @unique
+  /// Staff "At table" QR
+  staffQrToken    String      @unique
+  status          TableStatus @default(VACANT)
+  statusChangedAt DateTime    @default(now())
+  /// Optimistic concurrency for state transitions.
+  version         Int         @default(0)
+  archivedAt      DateTime?
+
+  outlet   Outlet         @relation(fields: [outletId], references: [id])
+  section  Section        @relation(fields: [sectionId], references: [id])
+  seatings SeatingTable[]
+  zones    TableZone[]
+  events   TableEvent[]
+
+  @@unique([outletId, label])
+  @@index([outletId, status])
+}
+
+// ───────────── Staff ─────────────
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?  @unique
+  phone          String?
+  passwordHash   String?
+  pinHash        String?
+  avatarUrl      String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization    Organization       @relation(fields: [organizationId], references: [id])
+  roles           UserOutletRole[]
+  shifts          Shift[]
+  pushSubs        PushSubscription[]
+  refreshTokens   RefreshToken[]
+  assignments     Assignment[]
+  tasks           Task[]             @relation("TaskAssignee")
+  servingSeatings Seating[]          @relation("ServingWaiter")
+
+  @@index([organizationId])
+}
+
+model UserOutletRole {
+  userId   String
+  outletId String
+  role     Role
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@id([userId, outletId, role])
+  @@index([outletId, role])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  /// sha256 of the opaque token; the token itself is never stored.
+  tokenHash String    @unique
+  /// All tokens from one login share a family; reuse of a rotated token revokes the family.
+  familyId  String
+  deviceId  String?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  rotatedAt DateTime?
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model Shift {
+  id             String          @id @default(cuid())
+  organizationId String
+  outletId       String
+  userId         String
+  role           Role
+  startsAt       DateTime
+  endsAt         DateTime
+  sectionIds     String[]
+  maxTables      Int?
+  /// Per-shift override of the outlet assignment mode.
+  assignmentMode AssignmentMode?
+  checkedInAt    DateTime?
+  /// Monotonic per outlet: stable round-robin order.
+  checkInSeq     Int?
+  checkedOutAt   DateTime?
+  onBreak        Boolean         @default(false)
+  breakStartedAt DateTime?
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([outletId, startsAt])
+  @@index([outletId, checkedInAt])
+}
+
+model StaffDevice {
+  id             String     @id @default(cuid())
+  organizationId String
+  outletId       String
+  name           String
+  kind           DeviceKind
+  tokenHash      String     @unique
+  station        String?
+  createdById    String?
+  createdAt      DateTime   @default(now())
+  lastSeenAt     DateTime?
+  revokedAt      DateTime?
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@index([outletId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RoundRobinCursor {
+  outletId       String
+  /// sectionId, or "*" for the outlet-wide fallback.
+  sectionKey     String
+  lastCheckInSeq Int
+  lastUserId     String?
+  updatedAt      DateTime @updatedAt
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@id([outletId, sectionKey])
+}
+
+// ───────────── Edge & cameras ─────────────
+model EdgeDevice {
+  id             String    @id @default(cuid())
+  organizationId String
+  outletId       String
+  name           String
+  tokenHash      String    @unique
+  lastSeenAt     DateTime?
+  version        String?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  outlet  Outlet   @relation(fields: [outletId], references: [id])
+  cameras Camera[]
+
+  @@index([outletId])
+}
+
+model Camera {
+  id                  String    @id @default(cuid())
+  organizationId      String
+  outletId            String
+  edgeDeviceId        String
+  name                String
+  /// AES-256-GCM with CAMERA_SECRET_KEY; never returned to browsers.
+  rtspUrlEncrypted    String
+  fps                 Int       @default(3)
+  enabled             Boolean   @default(true)
+  healthy             Boolean   @default(false)
+  lastHealthAt        DateTime?
+  lastHealth          Json?
+  /// Blurred calibration snapshot location (unused: snapshots are stored inline below).
+  snapshotKey         String?
+  snapshotAt          DateTime?
+  /// Latest calibration snapshot (JPEG, faces/heads blurred on the edge). One small image per camera.
+  snapshotJpeg        Bytes?
+  /// Set from the dashboard; the edge uploads a fresh snapshot on its next config poll.
+  snapshotRequestedAt DateTime?
+  /// Entrance zone (normalised polygon) for party-size estimates; null = this camera doesn't watch the door.
+  doorPolygon         Json?
+
+  outlet     Outlet      @relation(fields: [outletId], references: [id])
+  edgeDevice EdgeDevice  @relation(fields: [edgeDeviceId], references: [id])
+  zones      TableZone[]
+
+  @@index([outletId])
+}
+
+model TableZone {
+  id             String   @id @default(cuid())
+  organizationId String
+  outletId       String
+  cameraId       String
+  tableId        String
+  /// [[x,y],...] normalised 0..1 to snapshot size.
+  polygon        Json
+  calibratedAt   DateTime @default(now())
+  calibratedById String?
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  table  Table  @relation(fields: [tableId], references: [id])
+
+  @@unique([cameraId, tableId])
+}
+
+/// Idempotency for all edge events (including non-table ones).
+model EdgeEventReceipt {
+  eventId    String   @id
+  deviceId   String
+  receivedAt DateTime @default(now())
+
+  @@index([receivedAt])
+}
+
+// ───────────── Journey ─────────────
+/// P1 minimal; CRM fields arrive in P3.
+/// A guest is identified by phone (E.164) within an organisation (all its outlets). No faces, no accounts.
+model Guest {
+  id              String    @id @default(cuid())
+  organizationId  String
+  phone           String?
+  name            String?
+  /// Current opt-ins { WHATSAPP, FEEDBACK, MARKETING }; history in GuestConsent.
+  consentFlags    Json      @default("{}")
+  /// "MM-DD"
+  birthday        String?
+  /// Language for messages (en | hi), from the page the guest used.
+  locale          String    @default("en")
+  notes           String?
+  allergies       String?
+  /// Visit projection (recomputed when a seating closes).
+  visits          Int       @default(0)
+  lastVisitAt     DateTime?
+  totalSpendPaise Int       @default(0)
+  /// [{ name, count }] top items.
+  favourites      Json      @default("[]")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+  /// Personal data erased (request or retention); the row stays for anonymous aggregates.
+  deletedAt       DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  seatings     Seating[]
+  consents     GuestConsent[]
+  reservations Reservation[]
+  waitlist     WaitlistEntry[]
+
+  @@unique([organizationId, phone])
+}
+
+/// Append-only consent history (DPDP: who agreed to what, when, where).
+model GuestConsent {
+  id             String   @id @default(cuid())
+  organizationId String
+  guestId        String
+  /// WHATSAPP | FEEDBACK | MARKETING
+  purpose        String
+  granted        Boolean
+  /// BOOKING_PAGE | HOST | MANAGE_LINK | STAFF
+  source         String
+  actorId        String?
+  createdAt      DateTime @default(now())
+
+  guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([guestId, purpose, createdAt])
+}
+
+/**
+ * Outbound guest messages (WhatsApp, or the console channel in dev). Rows are written in the same transaction as
+ * the business change (outbox) and sent by the dispatcher; one row per purpose + entity (dedupeKey).
+ */
+model MessageLog {
+  id                String        @id @default(cuid())
+  organizationId    String
+  outletId          String
+  guestId           String
+  /// whatsapp | console
+  channel           String
+  /// BOOKING_CONFIRMED | BOOKING_CHANGED | BOOKING_REMINDER | WAITLIST_JOINED | TABLE_READY
+  purpose           String
+  entityType        String
+  entityId          String
+  dedupeKey         String        @unique
+  /// Nulled when the guest's data is erased.
+  toPhone           String?
+  template          String
+  locale            String
+  variables         Json          @default("[]")
+  status            MessageStatus @default(QUEUED)
+  providerMessageId String?       @unique
+  error             String?
+  attempts          Int           @default(0)
+  nextAttemptAt     DateTime      @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @default(now()) @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([entityType, entityId])
+  @@index([guestId])
+}
+
+/// Walk-in queue at the door (QR or host). Position = order of createdAt among WAITING/NOTIFIED entries.
+model WaitlistEntry {
+  id               String         @id @default(cuid())
+  organizationId   String
+  outletId         String
+  guestId          String
+  partySize        Int
+  status           WaitlistStatus @default(WAITING)
+  /// QR | HOST
+  source           String
+  notes            String?
+  /// Wait quoted when joining (minutes, upper bound of the range) — compared with the actual wait in analytics.
+  quotedMinutes    Int?
+  notifiedAt       DateTime?
+  notifiedTableIds String[]
+  holdUntil        DateTime?
+  seatedAt         DateTime?
+  seatingId        String?        @unique
+  closedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  guest  Guest  @relation(fields: [guestId], references: [id])
+
+  @@index([outletId, status, createdAt])
+}
+
+/// A group the entrance camera saw arriving together (party-size estimate for the host).
+model DoorArrival {
+  id                String    @id @default(cuid())
+  organizationId    String
+  outletId          String
+  cameraId          String
+  count             Int
+  at                DateTime
+  suggestedTableIds String[]
+  dismissedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@index([outletId, at])
+}
+
+model OutletHours {
+  id             String @id @default(cuid())
+  organizationId String
+  outletId       String
+  /// 0 = Sunday
+  dayOfWeek      Int
+  /// "HH:MM" local
+  opens          String
+  closes         String
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId])
+}
+
+model Reservation {
+  id             String             @id @default(cuid())
+  organizationId String
+  outletId       String
+  guestId        String
+  partySize      Int
+  startsAt       DateTime
+  endsAt         DateTime
+  status         ReservationStatus  @default(CONFIRMED)
+  channel        ReservationChannel
+  /// Assigned table(s); joined tables when more than one.
+  tableIds       String[]
+  sectionId      String?
+  notes          String?
+  heldAt         DateTime?
+  /// Raised once when the table couldn't be held (still occupied).
+  holdAlertAt    DateTime?
+  seatingId      String?            @unique
+  seatedAt       DateTime?
+  cancelledAt    DateTime?
+  /// GUEST | STAFF
+  cancelledBy    String?
+  noShowAt       DateTime?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @default(now()) @updatedAt
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  guest  Guest  @relation(fields: [guestId], references: [id])
+
+  @@index([outletId, startsAt])
+  @@index([guestId])
+}
+
+model Seating {
+  id                String        @id @default(cuid())
+  organizationId    String
+  outletId          String
+  status            SeatingStatus @default(OPEN)
+  partySize         Int?
+  source            SeatingSource @default(WALK_IN)
+  /// CAMERA or STAFF
+  seatedBy          EventSource
+  guestId           String?
+  notes             String?
+  seatedAt          DateTime
+  greetedAt         DateTime?
+  greetedById       String?
+  firstOrderAt      DateTime?
+  servedAt          DateTime?
+  billRequestedAt   DateTime?
+  paidAt            DateTime?
+  leftAt            DateTime?
+  cleanedAt         DateTime?
+  closedAt          DateTime?
+  servingWaiterId   String?
+  slaBreachedAt     DateTime?
+  escalatedAt       DateTime?
+  /// Last tap, task, order or camera staff-present at this table (idle-table alert).
+  lastStaffTouchAt  DateTime?
+  idleNudgedAt      DateTime?
+  idleAlertedAt     DateTime?
+  fireMainsPromptAt DateTime?
+  dessertOfferAt    DateTime?
+  /// P3 extension point.
+  reservationId     String?
+
+  outlet        Outlet         @relation(fields: [outletId], references: [id])
+  guest         Guest?         @relation(fields: [guestId], references: [id])
+  servingWaiter User?          @relation("ServingWaiter", fields: [servingWaiterId], references: [id])
+  tables        SeatingTable[]
+  assignments   Assignment[]
+  orders        Order[]
+  tasks         Task[]
+  sessions      GuestSession[]
+  cartLines     CartLine[]
+  bills         Bill[]
+  feedback      Feedback[]
+
+  @@index([outletId, status])
+  @@index([outletId, seatedAt])
+}
+
+model SeatingTable {
+  seatingId String
+  tableId   String
+  /// Mirrors seating.status; backs the partial unique index one_open_seating_per_table.
+  isOpen    Boolean @default(true)
+
+  seating Seating @relation(fields: [seatingId], references: [id], onDelete: Cascade)
+  table   Table   @relation(fields: [tableId], references: [id])
+
+  @@id([seatingId, tableId])
+  @@index([tableId, isOpen])
+}
+
+model Assignment {
+  id             String           @id @default(cuid())
+  organizationId String
+  outletId       String
+  seatingId      String
+  waiterId       String
+  reason         AssignmentReason
+  attempt        Int              @default(1)
+  assignedAt     DateTime         @default(now())
+  acknowledgedAt DateTime?
+  expiredAt      DateTime?
+
+  outlet  Outlet  @relation(fields: [outletId], references: [id])
+  seating Seating @relation(fields: [seatingId], references: [id], onDelete: Cascade)
+  waiter  User    @relation(fields: [waiterId], references: [id])
+
+  @@index([seatingId])
+  @@index([waiterId, assignedAt])
+}
+
+/// Append-only history of every table state change and camera observation.
+model TableEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  outletId       String
+  tableId        String
+  seatingId      String?
+  /// See packages/shared table machine event types.
+  type           String
+  source         EventSource
+  /// User id or edge device id.
+  actorId        String?
+  confidence     Float?
+  fromStatus     TableStatus?
+  toStatus       TableStatus?
+  payload        Json         @default("{}")
+  /// Edge idempotency key.
+  eventId        String?      @unique
+  occurredAt     DateTime
+  recordedAt     DateTime     @default(now())
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  table  Table  @relation(fields: [tableId], references: [id])
+
+  @@index([tableId, occurredAt])
+  @@index([outletId, occurredAt])
+}
+
+model Task {
+  id             String     @id @default(cuid())
+  organizationId String
+  outletId       String
+  type           TaskType
+  tableId        String?
+  seatingId      String?
+  orderId        String?
+  assigneeId     String?
+  status         TaskStatus @default(OPEN)
+  payload        Json       @default("{}")
+  createdAt      DateTime   @default(now())
+  acceptedAt     DateTime?
+  doneAt         DateTime?
+  doneById       String?
+
+  outlet   Outlet   @relation(fields: [outletId], references: [id])
+  seating  Seating? @relation(fields: [seatingId], references: [id])
+  assignee User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([outletId, status])
+  @@index([assigneeId, status])
+}
+
+model Alert {
+  id               String        @id @default(cuid())
+  organizationId   String
+  outletId         String
+  type             AlertType
+  severity         AlertSeverity
+  status           AlertStatus   @default(OPEN)
+  tableId          String?
+  seatingId        String?
+  cameraId         String?
+  message          String
+  payload          Json          @default("{}")
+  /// e.g. "camera-offline:{cameraId}"; at most one alert per key per outlet.
+  dedupeKey        String?
+  createdAt        DateTime      @default(now())
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  resolvedAt       DateTime?
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@unique([outletId, dedupeKey])
+  @@index([outletId, status, createdAt])
+}
+
+// ───────────── Menu ─────────────
+model KitchenStation {
+  id             String @id @default(cuid())
+  organizationId String
+  outletId       String
+  /// "tandoor", "chinese", "bar", "desserts"
+  code           String
+  /// { en, hi }
+  name           Json
+
+  outlet     Outlet      @relation(fields: [outletId], references: [id])
+  menuItems  MenuItem[]
+  orderItems OrderItem[]
+
+  @@unique([outletId, code])
+}
+
+model MenuCategory {
+  id                  String    @id @default(cuid())
+  organizationId      String
+  outletId            String
+  /// { en, hi, ... }
+  name                Json
+  sortOrder           Int       @default(0)
+  course              Course    @default(OTHER)
+  /// [{ days:[1..7], from:"11:00", to:"15:30" }] in outlet local time.
+  availabilityWindows Json?
+  archivedAt          DateTime?
+
+  outlet Outlet     @relation(fields: [outletId], references: [id])
+  items  MenuItem[]
+
+  @@index([outletId])
+}
+
+model MenuItem {
+  id                  String    @id @default(cuid())
+  organizationId      String
+  outletId            String
+  categoryId          String
+  name                Json
+  description         Json?
+  vegType             VegType
+  allergens           String[]
+  /// 0..3
+  spiceLevel          Int       @default(0)
+  stationId           String
+  pricePaise          Int
+  taxRateBps          Int       @default(500)
+  /// SAC 996331: restaurant services.
+  hsnSac              String?   @default("996331")
+  imageUrl            String?
+  /// Out-of-stock toggle.
+  isAvailable         Boolean   @default(true)
+  availabilityWindows Json?
+  sortOrder           Int       @default(0)
+  archivedAt          DateTime?
+
+  outlet         Outlet                  @relation(fields: [outletId], references: [id])
+  category       MenuCategory            @relation(fields: [categoryId], references: [id])
+  station        KitchenStation          @relation(fields: [stationId], references: [id])
+  modifierGroups MenuItemModifierGroup[]
+  cartLines      CartLine[]
+  orderItems     OrderItem[]
+
+  @@index([outletId, categoryId])
+}
+
+model ModifierGroup {
+  id             String @id @default(cuid())
+  organizationId String
+  outletId       String
+  name           Json
+  minSelect      Int    @default(0)
+  maxSelect      Int    @default(1)
+
+  outlet    Outlet                  @relation(fields: [outletId], references: [id])
+  modifiers Modifier[]
+  items     MenuItemModifierGroup[]
+
+  @@index([outletId])
+}
+
+model MenuItemModifierGroup {
+  menuItemId      String
+  modifierGroupId String
+  sortOrder       Int    @default(0)
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, modifierGroupId])
+}
+
+model Modifier {
+  id              String  @id @default(cuid())
+  modifierGroupId String
+  name            Json
+  priceDeltaPaise Int     @default(0)
+  isAvailable     Boolean @default(true)
+  sortOrder       Int     @default(0)
+
+  group ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+}
+
+// ───────────── Ordering ─────────────
+model GuestSession {
+  id             String    @id @default(cuid())
+  organizationId String
+  outletId       String
+  seatingId      String
+  /// Random id stored in the guest's browser.
+  deviceId       String
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+
+  outlet    Outlet     @relation(fields: [outletId], references: [id])
+  seating   Seating    @relation(fields: [seatingId], references: [id], onDelete: Cascade)
+  cartLines CartLine[]
+
+  @@unique([seatingId, deviceId])
+}
+
+/// Shared cart per seating; persisted so reloads survive.
+model CartLine {
+  id             String   @id @default(cuid())
+  seatingId      String
+  guestSessionId String
+  menuItemId     String
+  quantity       Int
+  modifierIds    String[]
+  note           String?
+  updatedAt      DateTime @updatedAt
+
+  seating      Seating      @relation(fields: [seatingId], references: [id], onDelete: Cascade)
+  guestSession GuestSession @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem     @relation(fields: [menuItemId], references: [id])
+
+  @@index([seatingId])
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  organizationId String
+  outletId       String
+  seatingId      String
+  /// Per-outlet daily ticket number.
+  number         Int
+  source         OrderSource
+  status         OrderStatus
+  placedById     String?
+  guestSessionId String?
+  approvedById   String?
+  approvedAt     DateTime?
+  rejectedReason String?
+  createdAt      DateTime    @default(now())
+
+  outlet  Outlet      @relation(fields: [outletId], references: [id])
+  seating Seating     @relation(fields: [seatingId], references: [id])
+  items   OrderItem[]
+
+  @@index([outletId, createdAt])
+  @@index([seatingId])
+}
+
+model OrderItem {
+  id             String          @id @default(cuid())
+  organizationId String
+  orderId        String
+  outletId       String
+  menuItemId     String
+  nameSnapshot   Json
+  stationId      String
+  quantity       Int
+  /// Includes modifiers; snapshot at order time.
+  unitPricePaise Int
+  taxRateBps     Int
+  /// [{ id, name, priceDeltaPaise }]
+  modifiers      Json            @default("[]")
+  note           String?
+  status         OrderItemStatus @default(QUEUED)
+  /// Snapshot of the category's course.
+  course         Course          @default(OTHER)
+  /// When the item reached the kitchen (QUEUED); for held items this is when the course was fired.
+  queuedAt       DateTime        @default(now())
+  /// Predicted ready time when the item reached the kitchen (prep-time accuracy).
+  etaReadyAt     DateTime?
+  firedAt        DateTime?
+  startedAt      DateTime?
+  readyAt        DateTime?
+  servedAt       DateTime?
+  voidedAt       DateTime?
+  voidReason     String?
+
+  outlet   Outlet         @relation(fields: [outletId], references: [id])
+  order    Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem       @relation(fields: [menuItemId], references: [id])
+  station  KitchenStation @relation(fields: [stationId], references: [id])
+
+  @@index([outletId, stationId, status])
+}
+
+// ───────────── Billing ─────────────
+model Bill {
+  id                 String     @id @default(cuid())
+  organizationId     String
+  outletId           String
+  seatingId          String
+  /// Assigned on finalize: {prefix}/{FY}/{seq}
+  invoiceNumber      String?
+  status             BillStatus @default(OPEN)
+  subtotalPaise      Int        @default(0)
+  discountPaise      Int        @default(0)
+  discountReason     String?
+  serviceChargePaise Int        @default(0)
+  cgstPaise          Int        @default(0)
+  sgstPaise          Int        @default(0)
+  roundOffPaise      Int        @default(0)
+  totalPaise         Int        @default(0)
+  /// Service charge rate applied to this bill (outlet default unless changed).
+  serviceChargeBps   Int        @default(0)
+  /// Discounted items + service charge.
+  taxablePaise       Int        @default(0)
+  /// GST summary by rate, snapshotted for the invoice: [{ taxRateBps, taxablePaise, cgstPaise, sgstPaise }].
+  taxBreakup         Json       @default("[]")
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @default(now()) @updatedAt
+  finalizedAt        DateTime?
+  finalizedById      String?
+  paidAt             DateTime?
+  voidedAt           DateTime?
+  voidReason         String?
+  /// Split plan ({ mode, shares: [{ key, label, amountPaise, lineIds? }] }); payments reference a share by key.
+  splitPlan          Json?
+
+  outlet   Outlet     @relation(fields: [outletId], references: [id])
+  seating  Seating    @relation(fields: [seatingId], references: [id])
+  lines    BillLine[]
+  payments Payment[]
+
+  @@unique([outletId, invoiceNumber])
+  @@index([seatingId])
+}
+
+model BillLine {
+  id                     String  @id @default(cuid())
+  billId                 String
+  orderItemId            String?
+  description            String
+  hsnSac                 String?
+  quantity               Int
+  unitPricePaise         Int
+  /// Share of the bill discount.
+  discountPaise          Int     @default(0)
+  /// Item value after discount.
+  taxableValuePaise      Int
+  taxRateBps             Int
+  cgstPaise              Int
+  sgstPaise              Int
+  /// This line's share of the service charge and its GST.
+  serviceChargePaise     Int     @default(0)
+  serviceChargeCgstPaise Int     @default(0)
+  serviceChargeSgstPaise Int     @default(0)
+  sortOrder              Int     @default(0)
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
+}
+
+/// Gap-free invoice numbering per outlet per financial year.
+model InvoiceSequence {
+  outletId      String
+  /// "2026-27"
+  financialYear String
+  next          Int
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+
+  @@id([outletId, financialYear])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  organizationId    String
+  outletId          String
+  billId            String
+  method            PaymentMethod
+  status            PaymentStatus
+  amountPaise       Int
+  /// UPI ref / card last4 / Razorpay payment id.
+  reference         String?
+  /// Null for guest (online) payments.
+  receivedById      String?
+  /// Split share this payment settles (Bill.splitPlan), if any.
+  shareKey          String?
+  /// Online payments: "razorpay"; null for counter payments.
+  provider          String?
+  providerOrderId   String?       @unique
+  providerPaymentId String?       @unique
+  failureReason     String?
+  /// Tip on top of the amount (never part of the bill or its taxable value).
+  tipPaise          Int           @default(0)
+  /// Waiter the tip is attributed to (the serving waiter at payment time).
+  tipWaiterId       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @default(now()) @updatedAt
+  capturedAt        DateTime?
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  bill   Bill   @relation(fields: [billId], references: [id])
+
+  @@index([billId])
+}
+
+/// Guest feedback during the meal ("How's everything?").
+model Feedback {
+  id             String       @id @default(cuid())
+  organizationId String
+  outletId       String
+  seatingId      String
+  guestSessionId String?
+  kind           FeedbackKind @default(MID_MEAL)
+  positive       Boolean
+  comment        String?
+  createdAt      DateTime     @default(now())
+
+  outlet  Outlet  @relation(fields: [outletId], references: [id])
+  seating Seating @relation(fields: [seatingId], references: [id], onDelete: Cascade)
+
+  @@unique([seatingId, guestSessionId, kind])
+  @@index([outletId, createdAt])
+}
+
+// ───────────── Audit ─────────────
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  outletId       String?
+  /// USER | DEVICE | SYSTEM | GUEST
+  actorType      String
+  actorId        String?
+  /// "table.transition", "outlet.settings.update", ...
+  action         String
+  entityType     String
+  entityId       String
+  before         Json?
+  after          Json?
+  requestId      String?
+  ip             String?
+  createdAt      DateTime @default(now())
+
+  outlet Outlet? @relation(fields: [outletId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+}
