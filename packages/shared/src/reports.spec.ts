@@ -43,8 +43,8 @@ describe('day report', () => {
         { finalizedAt: at('14:01'), totalPaise: 50_000 },
       ],
       payments: [
-        { method: 'UPI', amountPaise: 100_000 },
-        { method: 'CASH', amountPaise: 50_000 },
+        { method: 'UPI', amountPaise: 100_000, tipPaise: 10_000, tipWaiterId: 'w2' },
+        { method: 'CASH', amountPaise: 50_000, tipPaise: 2_000, tipWaiterId: null },
         { method: 'UPI', amountPaise: 0 },
       ],
       leftWithoutPaying: 1,
@@ -75,6 +75,7 @@ describe('day report', () => {
         acknowledged: 0,
         missed: 2,
         avgAckSeconds: null,
+        tipsPaise: 0,
       },
       {
         waiterId: 'w2',
@@ -84,6 +85,7 @@ describe('day report', () => {
         acknowledged: 1,
         missed: 0,
         avgAckSeconds: 0,
+        tipsPaise: 10_000,
       },
     ]);
     expect(r.salesByHour).toEqual([
@@ -92,6 +94,8 @@ describe('day report', () => {
     ]);
     expect(r.payments[0]).toEqual({ method: 'UPI', count: 2, amountPaise: 100_000 });
     expect(r.sales).toEqual({ bills: 3, totalPaise: 150_000, avgBillPaise: 50_000 });
+    // Tips never count as sales; the counter tip with no serving waiter is unattributed.
+    expect(r.tips).toEqual({ totalPaise: 12_000, unattributedPaise: 2_000 });
   });
 
   it('empty day', () => {

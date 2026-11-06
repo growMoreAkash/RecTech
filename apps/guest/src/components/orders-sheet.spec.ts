@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayStatus } from './orders-sheet';
+import { displayStatus, etaMinutes } from './orders-sheet';
 
 const order = (status: 'ACCEPTED' | 'PENDING_APPROVAL', items: string[]) =>
   ({
@@ -23,5 +23,14 @@ describe('guest order status', () => {
     expect(displayStatus(order('ACCEPTED', ['SERVED', 'VOID']))).toBe('DONE');
     expect(displayStatus(order('ACCEPTED', ['SERVED', 'READY']))).toBe('ACCEPTED');
     expect(displayStatus(order('PENDING_APPROVAL', ['QUEUED']))).toBe('PENDING_APPROVAL');
+  });
+});
+
+describe('order ETA', () => {
+  it('rounds up to whole minutes and never goes negative', () => {
+    const now = Date.parse('2026-11-06T13:00:00Z');
+    expect(etaMinutes('2026-11-06T13:11:10Z', now)).toBe(12);
+    expect(etaMinutes('2026-11-06T12:50:00Z', now)).toBe(0);
+    expect(etaMinutes(null, now)).toBeNull();
   });
 });

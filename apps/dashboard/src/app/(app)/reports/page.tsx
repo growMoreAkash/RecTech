@@ -93,6 +93,7 @@ export default function ReportsPage() {
                       <th className="p-2 text-right font-medium">{t('acknowledged')}</th>
                       <th className="p-2 text-right font-medium">{t('missed')}</th>
                       <th className="p-2 text-right font-medium">{t('avgAck')}</th>
+                      <th className="p-2 text-right font-medium">{t('tips')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -113,6 +114,9 @@ export default function ReportsPage() {
                           {w.missed}
                         </td>
                         <td className="p-2 text-right tabular-nums">{minSec(w.avgAckSeconds)}</td>
+                        <td className="p-2 text-right tabular-nums">
+                          {w.tipsPaise ? <Money paise={w.tipsPaise} /> : '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -137,6 +141,15 @@ export default function ReportsPage() {
                 label={t('avgBill')}
                 value={r.sales.avgBillPaise === null ? '—' : <Money paise={r.sales.avgBillPaise} />}
               />
+              <Tile
+                label={t('tipsTotal')}
+                value={<Money paise={r.tips.totalPaise} />}
+                sub={
+                  r.tips.unattributedPaise
+                    ? t('tipsUnattributed', { amount: (r.tips.unattributedPaise / 100).toFixed(2) })
+                    : undefined
+                }
+              />
             </div>
             <SalesByHour rows={r.salesByHour} />
             {r.payments.length ? (
@@ -157,6 +170,37 @@ export default function ReportsPage() {
                 </tbody>
               </table>
             ) : null}
+          </section>
+
+          <section aria-labelledby="h-service" className="space-y-2">
+            <h2 id="h-service" className="font-semibold">
+              {t('service.title')}
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile
+                label={t('service.prepAccuracy')}
+                value={r.service.prep.within5MinPct === null ? '—' : `${r.service.prep.within5MinPct}%`}
+                sub={
+                  r.service.prep.meanAbsErrorSeconds === null
+                    ? undefined
+                    : t('service.prepError', {
+                        value: Math.round(r.service.prep.meanAbsErrorSeconds / 6) / 10,
+                        count: r.service.prep.items,
+                      })
+                }
+              />
+              <Tile
+                label={t('service.midMeal')}
+                value={t('service.midMealCounts', r.service.midMeal)}
+                warn={r.service.midMeal.negative > 0}
+              />
+              <Tile
+                label={t('service.idleAlerts')}
+                value={r.service.idleAlerts}
+                warn={r.service.idleAlerts > 0}
+              />
+              <Tile label={t('service.dirty')} value={r.service.dirtyTablesFound} />
+            </div>
           </section>
         </>
       ) : null}

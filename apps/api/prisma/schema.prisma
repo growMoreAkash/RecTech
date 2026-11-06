@@ -115,6 +115,10 @@ enum TaskType {
   SERVE
   CLEAN
   APPROVE_ORDER
+  CHECK_TABLE
+  FIRE_COURSE
+  OFFER_DESSERT
+  SERVICE_RECOVERY
 }
 
 enum TaskStatus {
@@ -144,6 +148,8 @@ enum OrderStatus {
 }
 
 enum OrderItemStatus {
+  /// Course pacing: ordered but not sent to the kitchen yet.
+  HELD
   QUEUED
   COOKING
   READY
@@ -185,6 +191,21 @@ enum AlertType {
   LEFT_WITHOUT_PAYING
   SEATED_AT_DIRTY_TABLE
   RESERVED_TABLE_TAKEN
+  IDLE_TABLE
+  GUEST_UNHAPPY
+}
+
+/// Course of a menu category, used for pacing.
+enum Course {
+  DRINK
+  STARTER
+  MAIN
+  DESSERT
+  OTHER
+}
+
+enum FeedbackKind {
+  MID_MEAL
 }
 
 enum AlertSeverity {
@@ -262,6 +283,7 @@ model Outlet {
   bills            Bill[]
   invoiceSequences InvoiceSequence[]
   payments         Payment[]
+  feedback         Feedback[]
   auditLogs        AuditLog[]
 
   @@index([organizationId])
@@ -304,6 +326,22 @@ model OutletSettings {
   /// A notified party's table is held this long.
   waitlistHoldMinutes       Int            @default(10)
   waitlistMaxPartySize      Int            @default(10)
+  /// Nudge the serving waiter after this long without a staff touch (0 = off).
+  idleNudgeMinutes          Int            @default(15)
+  /// Alert managers after this long without a staff touch.
+  idleAlertMinutes          Int            @default(25)
+  /// Hold mains until starters are served.
+  pacingEnabled             Boolean        @default(false)
+  /// Prompt "fire mains" this long after the last starter is served.
+  fireMainsAfterMinutes     Int            @default(8)
+  /// Send held mains to the kitchen anyway after this long (0 = never).
+  autoFireMinutes           Int            @default(20)
+  /// Prompt "offer dessert" this long after the last main is served (0 = off).
+  dessertOfferMinutes       Int            @default(15)
+  /// Ask QR guests "How's everything?" this long after the first item is served (0 = off).
+  midMealCheckMinutes       Int            @default(12)
+  /// Cups/plates on an empty table this long → needs cleaning.
+  dirtyConfirmSeconds       Int            @default(20)
   updatedAt                 DateTime       @updatedAt
 
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
@@ -748,31 +786,37 @@ model Reservation {
 }
 
 model Seating {
-  id              String        @id @default(cuid())
-  organizationId  String
-  outletId        String
-  status          SeatingStatus @default(OPEN)
-  partySize       Int?
-  source          SeatingSource @default(WALK_IN)
+  id                String        @id @default(cuid())
+  organizationId    String
+  outletId          String
+  status            SeatingStatus @default(OPEN)
+  partySize         Int?
+  source            SeatingSource @default(WALK_IN)
   /// CAMERA or STAFF
-  seatedBy        EventSource
-  guestId         String?
-  notes           String?
-  seatedAt        DateTime
-  greetedAt       DateTime?
-  greetedById     String?
-  firstOrderAt    DateTime?
-  servedAt        DateTime?
-  billRequestedAt DateTime?
-  paidAt          DateTime?
-  leftAt          DateTime?
-  cleanedAt       DateTime?
-  closedAt        DateTime?
-  servingWaiterId String?
-  slaBreachedAt   DateTime?
-  escalatedAt     DateTime?
+  seatedBy          EventSource
+  guestId           String?
+  notes             String?
+  seatedAt          DateTime
+  greetedAt         DateTime?
+  greetedById       String?
+  firstOrderAt      DateTime?
+  servedAt          DateTime?
+  billRequestedAt   DateTime?
+  paidAt            DateTime?
+  leftAt            DateTime?
+  cleanedAt         DateTime?
+  closedAt          DateTime?
+  servingWaiterId   String?
+  slaBreachedAt     DateTime?
+  escalatedAt       DateTime?
+  /// Last tap, task, order or camera staff-present at this table (idle-table alert).
+  lastStaffTouchAt  DateTime?
+  idleNudgedAt      DateTime?
+  idleAlertedAt     DateTime?
+  fireMainsPromptAt DateTime?
+  dessertOfferAt    DateTime?
   /// P3 extension point.
-  reservationId   String?
+  reservationId     String?
 
   outlet        Outlet         @relation(fields: [outletId], references: [id])
   guest         Guest?         @relation(fields: [guestId], references: [id])
@@ -784,6 +828,7 @@ model Seating {
   sessions      GuestSession[]
   cartLines     CartLine[]
   bills         Bill[]
+  feedback      Feedback[]
 
   @@index([outletId, status])
   @@index([outletId, seatedAt])
@@ -923,6 +968,7 @@ model MenuCategory {
   /// { en, hi, ... }
   name                Json
   sortOrder           Int       @default(0)
+  course              Course    @default(OTHER)
   /// [{ days:[1..7], from:"11:00", to:"15:30" }] in outlet local time.
   availabilityWindows Json?
   archivedAt          DateTime?
@@ -1079,7 +1125,13 @@ model OrderItem {
   modifiers      Json            @default("[]")
   note           String?
   status         OrderItemStatus @default(QUEUED)
+  /// Snapshot of the category's course.
+  course         Course          @default(OTHER)
+  /// When the item reached the kitchen (QUEUED); for held items this is when the course was fired.
   queuedAt       DateTime        @default(now())
+  /// Predicted ready time when the item reached the kitchen (prep-time accuracy).
+  etaReadyAt     DateTime?
+  firedAt        DateTime?
   startedAt      DateTime?
   readyAt        DateTime?
   servedAt       DateTime?
@@ -1193,6 +1245,10 @@ model Payment {
   providerOrderId   String?       @unique
   providerPaymentId String?       @unique
   failureReason     String?
+  /// Tip on top of the amount (never part of the bill or its taxable value).
+  tipPaise          Int           @default(0)
+  /// Waiter the tip is attributed to (the serving waiter at payment time).
+  tipWaiterId       String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @default(now()) @updatedAt
   capturedAt        DateTime?
@@ -1201,6 +1257,25 @@ model Payment {
   bill   Bill   @relation(fields: [billId], references: [id])
 
   @@index([billId])
+}
+
+/// Guest feedback during the meal ("How's everything?").
+model Feedback {
+  id             String       @id @default(cuid())
+  organizationId String
+  outletId       String
+  seatingId      String
+  guestSessionId String?
+  kind           FeedbackKind @default(MID_MEAL)
+  positive       Boolean
+  comment        String?
+  createdAt      DateTime     @default(now())
+
+  outlet  Outlet  @relation(fields: [outletId], references: [id])
+  seating Seating @relation(fields: [seatingId], references: [id], onDelete: Cascade)
+
+  @@unique([seatingId, guestSessionId, kind])
+  @@index([outletId, createdAt])
 }
 
 // ───────────── Audit ─────────────

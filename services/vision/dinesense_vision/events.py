@@ -30,7 +30,7 @@ def _conf(c: float) -> float:
 
 
 def table_event(
-    kind: Literal["table.occupied", "table.vacated", "table.guest_count_changed", "table.staff_present"],
+    kind: Literal["table.occupied", "table.vacated", "table.guest_count_changed", "table.staff_present", "table.dirty"],
     *,
     camera_id: str,
     table_id: str,

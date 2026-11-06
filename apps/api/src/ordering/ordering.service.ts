@@ -16,6 +16,7 @@ import {
   type OrderLineInput,
   priceLine,
   rooms,
+  shouldHoldMains,
 } from '@dinesense/shared';
 import { type AuditActor, AuditService } from '../audit/audit.service';
 import { AppError } from '../common/app-error';
@@ -23,7 +24,9 @@ import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { itemInclude, flattenItem } from '../menu/menu.service';
+import { touchSeating } from '../table-state/staff-touch';
 import { TableStateService } from '../table-state/table-state.service';
+import { PrepTimeService } from './prep-time.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -53,6 +56,8 @@ export const orderInclude = {
 
 /** Item status moves allowed, and who may make them. */
 const ITEM_FLOW: Record<OrderItemStatus, Partial<Record<OrderItemStatus, readonly Role[]>>> = {
+  // Held courses reach the kitchen through fireCourse, not item by item.
+  HELD: { VOID: ['MANAGER', 'OWNER'] },
   QUEUED: {
     COOKING: ['CHEF', 'MANAGER', 'OWNER'],
     READY: ['CHEF', 'MANAGER', 'OWNER'],
@@ -92,6 +97,7 @@ export class OrderingService {
     private readonly realtime: RealtimeService,
     private readonly tables: TableStateService,
     private readonly notifier: NotifierService,
+    private readonly prep: PrepTimeService,
   ) {}
 
   /** Prices lines against the live menu. Throws ITEM_UNAVAILABLE / INVALID_MODIFIERS with per-line details. */
@@ -106,7 +112,10 @@ export class OrderingService {
     const ids = [...new Set(lines.map((l) => l.menuItemId))];
     const items = await db.menuItem.findMany({
       where: { id: { in: ids }, organizationId, outletId, archivedAt: null },
-      include: { ...itemInclude, category: { select: { availabilityWindows: true, archivedAt: true } } },
+      include: {
+        ...itemInclude,
+        category: { select: { availabilityWindows: true, archivedAt: true, course: true } },
+      },
     });
     const byId = new Map(items.map((i) => [i.id, i]));
     const open = (w: unknown) => isWithinWindows(w as AvailabilityWindow[] | null, now, outlet.timezone);
@@ -131,7 +140,7 @@ export class OrderingService {
         invalid.push({ index, menuItemId: line.menuItemId, errors: price.errors });
         return null;
       }
-      return { line, item: flat, price };
+      return { line, item: flat, price, course: item.category.course };
     });
     if (unavailable.length) {
       throw new AppError('ITEM_UNAVAILABLE', HttpStatus.CONFLICT, 'Some items are not available right now', {
@@ -180,7 +189,7 @@ export class OrderingService {
           ...(accepted && input.placedById ? { approvedById: input.placedById, approvedAt: now } : {}),
           ...(accepted && !input.placedById ? { approvedAt: now } : {}),
           items: {
-            create: priced.map(({ line, item, price }) => ({
+            create: priced.map(({ line, item, price, course }) => ({
               organizationId: input.organizationId,
               outletId: input.outletId,
               menuItemId: item.id,
@@ -191,6 +200,7 @@ export class OrderingService {
               taxRateBps: item.taxRateBps,
               modifiers: price.modifiers as unknown as Prisma.InputJsonValue,
               note: line.note ?? null,
+              course,
             })),
           },
         },
@@ -210,12 +220,14 @@ export class OrderingService {
           },
         });
       }
-      // A waiter taking the order is serving the table.
+      if (accepted) await this.release(tx, created, settings.pacingEnabled, now);
+      // A waiter taking the order is serving the table (and is at it).
       if (input.source === 'WAITER' && input.placedById) {
         await tx.seating.updateMany({
           where: { id: seating.id, servingWaiterId: null },
           data: { servingWaiterId: input.placedById },
         });
+        await touchSeating(tx, seating.id, now);
       }
       await input.afterCreate?.(tx, created.id);
       await this.audit.recordAs(
@@ -250,6 +262,9 @@ export class OrderingService {
         data: { status: 'ACCEPTED', approvedById: audit.id, approvedAt: new Date() },
       });
       if (res.count !== 1) throw await this.notPending(tx, organizationId, outletId, orderId);
+      const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+      const settings = await tx.outletSettings.findUniqueOrThrow({ where: { outletId } });
+      await this.release(tx, order, settings.pacingEnabled, new Date());
       await this.closeTasks(tx, orderId, ['APPROVE_ORDER'], 'DONE', audit.id);
       await this.audit.recordAs(
         audit,
@@ -326,6 +341,7 @@ export class OrderingService {
       if (res.count !== 1)
         throw new AppError('CONFLICT', HttpStatus.CONFLICT, 'The item was just changed by someone else');
       if (next === 'READY') serveTask = await this.ensureServeTask(tx, item.order);
+      if (next === 'SERVED') await touchSeating(tx, item.order.seatingId);
       await this.audit.recordAs(
         audit,
         {
@@ -397,11 +413,11 @@ export class OrderingService {
         organizationId,
         outletId,
         status: 'ACCEPTED',
-        items: { some: { stationId: station.id, status: { in: ['QUEUED', 'COOKING', 'READY'] } } },
+        items: { some: { stationId: station.id, status: { in: ['HELD', 'QUEUED', 'COOKING', 'READY'] } } },
       },
       include: {
         items: {
-          where: { stationId: station.id, status: { in: ['QUEUED', 'COOKING', 'READY'] } },
+          where: { stationId: station.id, status: { in: ['HELD', 'QUEUED', 'COOKING', 'READY'] } },
           orderBy: { queuedAt: 'asc' },
         },
         seating: { select: { partySize: true, tables: { select: { table: { select: { label: true } } } } } },
@@ -426,10 +442,69 @@ export class OrderingService {
           modifiers: i.modifiers,
           note: i.note,
           status: i.status,
+          course: i.course,
           queuedAt: i.queuedAt.toISOString(),
+          etaReadyAt: i.etaReadyAt?.toISOString() ?? null,
         })),
       })),
     };
+  }
+
+  /**
+   * Course pacing: send the seating's held courses to the kitchen (waiter taps "Fire mains", or the service sweep
+   * fires them when nobody did). Completes the FIRE_COURSE prompt.
+   */
+  async fireCourse(
+    organizationId: string,
+    outletId: string,
+    seatingId: string,
+    audit: AuditActor,
+    reason: 'manual' | 'auto',
+  ): Promise<{ fired: number }> {
+    const now = new Date();
+    const held = await this.prisma.$transaction(async (tx) => {
+      const items = await tx.orderItem.findMany({
+        where: { organizationId, outletId, status: 'HELD', order: { seatingId, status: 'ACCEPTED' } },
+        select: { id: true, orderId: true, station: { select: { code: true } } },
+      });
+      if (!items.length) return [];
+      const ids = items.map((i) => i.id);
+      await tx.orderItem.updateMany({
+        where: { id: { in: ids }, status: 'HELD' },
+        data: { status: 'QUEUED', firedAt: now },
+      });
+      await this.restartQueue(tx, ids, now);
+      await this.prep.stamp(tx, outletId, ids, now);
+      await tx.task.updateMany({
+        where: { seatingId, type: 'FIRE_COURSE', status: { in: ['OPEN', 'ACCEPTED'] } },
+        data: { status: 'DONE', doneAt: now, doneById: audit.id ?? null },
+      });
+      await this.audit.recordAs(
+        audit,
+        {
+          action: 'order.course.fire',
+          entityType: 'Seating',
+          entityId: seatingId,
+          outletId,
+          after: { items: ids.length, reason },
+        },
+        tx,
+      );
+      return items;
+    });
+    if (!held.length) return { fired: 0 };
+    for (const code of new Set(held.map((i) => i.station.code)))
+      this.realtime.emit([rooms.outlet(outletId), rooms.kds(outletId, code)], 'kds.changed', {
+        outletId,
+        stationCode: code,
+      });
+    for (const orderId of new Set(held.map((i) => i.orderId)))
+      this.announce(await this.getOrder(organizationId, orderId));
+    const tasks = await this.prisma.task.findMany({
+      where: { seatingId, type: 'FIRE_COURSE', status: 'DONE', doneAt: now },
+    });
+    tasks.forEach((t) => this.notifier.taskUpdated(t));
+    return { fired: held.length };
   }
 
   getOrder(organizationId: string, orderId: string) {
@@ -449,6 +524,69 @@ export class OrderingService {
   }
 
   // ───────── internals ─────────
+
+  /**
+   * An order was accepted: its items reach the kitchen now (queue time restarts after approval so prep times are
+   * the kitchen's), mains wait while starters are still to come (pacing), and each queued item gets an ETA.
+   */
+  private async release(
+    tx: Tx,
+    order: { id: string; outletId: string; seatingId: string },
+    pacing: boolean,
+    now: Date,
+  ): Promise<void> {
+    const accepted = await tx.orderItem.findMany({
+      where: { orderId: order.id, status: 'QUEUED' },
+      select: { id: true },
+    });
+    await this.restartQueue(
+      tx,
+      accepted.map((i) => i.id),
+      now,
+    );
+    if (pacing) {
+      const items = await tx.orderItem.findMany({
+        where: { order: { seatingId: order.seatingId, status: 'ACCEPTED' } },
+        select: { course: true, status: true },
+      });
+      if (shouldHoldMains(items)) {
+        await tx.orderItem.updateMany({
+          where: { orderId: order.id, status: 'QUEUED', course: 'MAIN' },
+          data: { status: 'HELD' },
+        });
+      }
+    }
+    const queued = await tx.orderItem.findMany({
+      where: { orderId: order.id, status: 'QUEUED' },
+      select: { id: true },
+    });
+    await this.prep.stamp(
+      tx,
+      order.outletId,
+      queued.map((i) => i.id),
+      now,
+    );
+  }
+
+  /**
+   * The kitchen clock for these items starts now. Items keep their relative order (lines, tickets and bills are
+   * ordered by queue time), so the whole group is shifted rather than stamped with one time.
+   */
+  private async restartQueue(tx: Tx, itemIds: string[], now: Date): Promise<void> {
+    if (!itemIds.length) return;
+    const items = await tx.orderItem.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, queuedAt: true },
+    });
+    const first = Math.min(...items.map((i) => i.queuedAt.getTime()));
+    const shift = now.getTime() - first;
+    if (shift <= 0) return;
+    for (const i of items)
+      await tx.orderItem.update({
+        where: { id: i.id },
+        data: { queuedAt: new Date(i.queuedAt.getTime() + shift) },
+      });
+  }
 
   /** Per-outlet daily ticket number, serialized with an advisory lock. */
   private async nextNumber(tx: Tx, outletId: string): Promise<number> {

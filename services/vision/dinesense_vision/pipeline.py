@@ -1,4 +1,4 @@
-"""One camera's processing: detect → posture → track → zones → occupancy / staff presence → edge events.
+"""One camera's processing: detect → posture → track → zones → occupancy / staff presence / dirty table → events.
 
 The same pipeline runs live (worker.py) and in `ds-vision eval`, so accuracy numbers describe production
 behaviour.
@@ -12,13 +12,14 @@ from typing import Any
 from .arrivals import ArrivalGrouper
 from .detect import Detection, Detector
 from .detect.base import Frame
+from .dirty import DirtyCheck
 from .events import party_arrived, table_event
 from .models import CameraConfig, EdgeSettings
 from .occupancy import CountChanged, OccupancyTracker, Occupied, Vacated
 from .posture import AspectRatioPosture, PostureEstimator
 from .staff import StaffPresence
 from .track import IouTracker
-from .zones import anchor, point_in_polygon, zone_of
+from .zones import anchor, centre, point_in_polygon, zone_of
 
 
 @dataclass
@@ -49,13 +50,23 @@ class CameraPipeline:
             for z in camera.zones
         }
         self.staff = {z.table_id: StaffPresence(settings.staff_present_seconds) for z in camera.zones}
+        self.dirty = {z.table_id: DirtyCheck(settings.dirty_confirm_seconds) for z in camera.zones}
 
     def occupied(self) -> dict[str, bool]:
         return {t: occ.occupied for t, occ in self.tables.items()}
 
     def process(self, frame: Frame, now: float) -> FrameResult:
         h, w = frame.shape[:2]
-        detections = [d for d in self.detector.detect(frame) if d.confidence >= self.min_confidence]
+        found = [d for d in self.detector.detect(frame) if d.confidence >= self.min_confidence]
+        detections = [d for d in found if d.label == "person"]
+        tableware: dict[str, list[tuple[str, float]]] = {t: [] for t in self.tables}
+        for d in found:
+            if d.label == "person":
+                continue
+            c = centre(d, w, h)
+            table = next((z.table_id for z in self.camera.zones if point_in_polygon(c, z.polygon)), None)
+            if table is not None:
+                tableware[table].append((d.label, d.confidence))
         tracks = self.tracker.update(detections, now)
         door_events: list[dict[str, Any]] = []
         seated: dict[str, list[float]] = {t: [] for t in self.tables}
@@ -126,6 +137,22 @@ class CameraPipeline:
                     )
             if was_occupied and not occ.occupied:
                 self.staff[table].reset()
+            dirty = self.dirty[table].update(now, tableware[table], len(confs), occ.occupied)
+            if dirty is not None:
+                result.events.append(
+                    table_event(
+                        "table.dirty",
+                        camera_id=cam,
+                        table_id=table,
+                        at=dirty.at,
+                        confidence=dirty.confidence,
+                        payload={
+                            "seconds": round(dirty.seconds, 1),
+                            "objects": max(1, min(100, dirty.objects)),
+                            "classes": list(dirty.classes),
+                        },
+                    )
+                )
             for sp in self.staff[table].update(now, standing[table], occ.occupied):
                 result.events.append(
                     table_event(

@@ -28,6 +28,9 @@ export interface ReportBill {
 export interface ReportPayment {
   method: string;
   amountPaise: number;
+  /** Tip on top (not part of sales). */
+  tipPaise?: number;
+  tipWaiterId?: string | null;
 }
 
 export interface DayReport {
@@ -51,10 +54,14 @@ export interface DayReport {
     /** Assignments passed on because this waiter did not acknowledge in time. */
     missed: number;
     avgAckSeconds: number | null;
+    /** Tips attributed to this waiter (serving waiter at payment time). */
+    tipsPaise: number;
   }[];
   salesByHour: { hour: number; bills: number; totalPaise: number }[];
   payments: { method: string; count: number; amountPaise: number }[];
   sales: { bills: number; totalPaise: number; avgBillPaise: number | null };
+  /** Tips are never part of sales or GST; tips with no serving waiter are "unattributed". */
+  tips: { totalPaise: number; unattributedPaise: number };
 }
 
 const secs = (a: Date, b: Date) => (b.getTime() - a.getTime()) / 1000;
@@ -96,6 +103,7 @@ export function summarizeDay(input: {
         acknowledged: 0,
         missed: 0,
         avgAckSeconds: null,
+        tipsPaise: 0,
         ackTimes: [],
       };
       waiters.set(id, row);
@@ -128,6 +136,15 @@ export function summarizeDay(input: {
     methods.set(p.method, row);
   }
   const salesTotal = input.bills.reduce((s, b) => s + b.totalPaise, 0);
+  let tipsTotal = 0;
+  let unattributed = 0;
+  for (const p of input.payments) {
+    const tip = p.tipPaise ?? 0;
+    if (!tip) continue;
+    tipsTotal += tip;
+    if (p.tipWaiterId) w(p.tipWaiterId).tipsPaise += tip;
+    else unattributed += tip;
+  }
 
   return {
     seatings: {
@@ -153,5 +170,6 @@ export function summarizeDay(input: {
       totalPaise: salesTotal,
       avgBillPaise: input.bills.length ? Math.round(salesTotal / input.bills.length) : null,
     },
+    tips: { totalPaise: tipsTotal, unattributedPaise: unattributed },
   };
 }

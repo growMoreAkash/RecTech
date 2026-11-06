@@ -10,6 +10,7 @@ import { GuestsModule } from './guests/guests.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
+import { ServiceQualityModule } from './service-quality/service-quality.module';
 import { AuthModule } from './auth/auth.module';
 import { ErrorFilter } from './common/error.filter';
 import { ConfigModule } from './config/config.module';
@@ -74,6 +75,7 @@ import { TableStateModule } from './table-state/table-state.module';
     GuestsModule,
     ReservationsModule,
     WaitlistModule,
+    ServiceQualityModule,
     EdgeModule,
   ],
   controllers: [HealthController, MeController],

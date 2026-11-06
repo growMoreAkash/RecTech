@@ -77,6 +77,14 @@ export default function SettingsPage() {
         waitlistEnabled: on('waitlistEnabled'),
         waitlistHoldMinutes: num('waitlistHoldMinutes'),
         waitlistMaxPartySize: num('waitlistMaxPartySize'),
+        idleNudgeMinutes: num('idleNudgeMinutes'),
+        idleAlertMinutes: num('idleAlertMinutes'),
+        pacingEnabled: on('pacingEnabled'),
+        fireMainsAfterMinutes: num('fireMainsAfterMinutes'),
+        autoFireMinutes: num('autoFireMinutes'),
+        dessertOfferMinutes: num('dessertOfferMinutes'),
+        midMealCheckMinutes: num('midMealCheckMinutes'),
+        dirtyConfirmSeconds: num('dirtyConfirmSeconds'),
       },
       { onSuccess: () => setSaved(true) },
     );
@@ -302,6 +310,58 @@ export default function SettingsPage() {
               value={s.waitlistMaxPartySize}
               min={1}
               max={60}
+            />
+          </Section>
+          <Section title={t('service.title')} hint={t('service.hint')}>
+            <NumberField
+              name="idleNudgeMinutes"
+              label={t('service.idleNudge')}
+              value={s.idleNudgeMinutes}
+              min={0}
+              max={120}
+            />
+            <NumberField
+              name="idleAlertMinutes"
+              label={t('service.idleAlert')}
+              value={s.idleAlertMinutes}
+              min={0}
+              max={180}
+            />
+            <Check name="pacingEnabled" label={t('service.pacing')} defaultChecked={s.pacingEnabled} />
+            <NumberField
+              name="fireMainsAfterMinutes"
+              label={t('service.fireAfter')}
+              value={s.fireMainsAfterMinutes}
+              min={0}
+              max={60}
+            />
+            <NumberField
+              name="autoFireMinutes"
+              label={t('service.autoFire')}
+              value={s.autoFireMinutes}
+              min={0}
+              max={120}
+            />
+            <NumberField
+              name="dessertOfferMinutes"
+              label={t('service.dessert')}
+              value={s.dessertOfferMinutes}
+              min={0}
+              max={120}
+            />
+            <NumberField
+              name="midMealCheckMinutes"
+              label={t('service.midMeal')}
+              value={s.midMealCheckMinutes}
+              min={0}
+              max={120}
+            />
+            <NumberField
+              name="dirtyConfirmSeconds"
+              label={t('service.dirty')}
+              value={s.dirtyConfirmSeconds}
+              min={5}
+              max={600}
             />
           </Section>
           <Section title={t('camera.title')} hint={t('camera.hint')}>

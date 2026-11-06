@@ -33,6 +33,7 @@ export function TasksTab({ outletId, me, roles }: { outletId: string; me: Me; ro
         method: 'POST',
         body: { event: 'CLEAN_CONFIRMED' },
       });
+    if (a === 'fire') return api(`/outlets/${outletId}/tables/${task.tableId}/fire`, { method: 'POST' });
     return undefined;
   });
   const accept = useOutletMutation(outletId, (task: Task) =>

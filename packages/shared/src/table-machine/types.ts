@@ -2,7 +2,17 @@ import type { Role, TableStatus } from '../enums';
 
 export type SeatingSource = 'WALK_IN' | 'RESERVATION' | 'WAITLIST';
 export type TaskTypeName =
-  'GREET' | 'CALL_WAITER' | 'WATER' | 'CUTLERY' | 'BILL' | 'SERVE' | 'CLEAN' | 'APPROVE_ORDER';
+  | 'GREET'
+  | 'CALL_WAITER'
+  | 'WATER'
+  | 'CUTLERY'
+  | 'BILL'
+  | 'SERVE'
+  | 'CLEAN'
+  | 'APPROVE_ORDER'
+  | 'CHECK_TABLE'
+  | 'FIRE_COURSE'
+  | 'OFFER_DESSERT';
 export type AlertTypeName =
   | 'SLA_BREACH'
   | 'REASSIGNED'
@@ -10,7 +20,8 @@ export type AlertTypeName =
   | 'NO_ELIGIBLE_WAITER'
   | 'LEFT_WITHOUT_PAYING'
   | 'SEATED_AT_DIRTY_TABLE'
-  | 'RESERVED_TABLE_TAKEN';
+  | 'RESERVED_TABLE_TAKEN'
+  | 'IDLE_TABLE';
 export type AlertSeverityName = 'INFO' | 'WARNING' | 'CRITICAL';
 export type SeatingTimestamp =
   'greetedAt' | 'firstOrderAt' | 'servedAt' | 'billRequestedAt' | 'paidAt' | 'leftAt';
@@ -39,6 +50,8 @@ export type TableMachineEvent =
   | { type: 'CAMERA_VACATED' }
   | { type: 'CAMERA_STAFF_PRESENT'; seconds: number; confidence: number }
   | { type: 'GUEST_COUNT_CHANGED'; guestCount: number }
+  /** Cups, plates or cutlery left on an empty table. */
+  | { type: 'CAMERA_DIRTY'; seconds: number }
   // system (other modules)
   | { type: 'ORDER_ACCEPTED'; orderSource: 'QR' | 'WAITER' }
   | { type: 'FIRST_ORDER_SERVED' }

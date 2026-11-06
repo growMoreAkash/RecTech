@@ -28,6 +28,11 @@ def anchor(d: Detection, frame_w: int, frame_h: int) -> Point:
     return ((d.x1 + d.x2) / 2 / frame_w, (d.y1 + 0.85 * d.height) / frame_h)
 
 
+def centre(d: Detection, frame_w: int, frame_h: int) -> Point:
+    """Normalised box centre (tableware sits on the table, so its centre is what counts)."""
+    return ((d.x1 + d.x2) / 2 / frame_w, (d.y1 + d.y2) / 2 / frame_h)
+
+
 def zone_of(d: Detection, zones: Sequence[Zone], frame_w: int, frame_h: int) -> str | None:
     p = anchor(d, frame_w, frame_h)
     for z in zones:

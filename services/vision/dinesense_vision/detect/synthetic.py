@@ -1,7 +1,7 @@
 """Detector for footage made by `ds-vision synth` (dev mode and eval only).
 
-Synthetic people are saturated colour blobs on a grey/brown scene; this finds them by colour. It does not work on
-real footage — use the YOLOX detector for real cameras.
+Synthetic people are saturated colour blobs on a grey/brown scene and tableware is small white squares; this finds
+them by colour. It does not work on real footage — use the YOLOX detector for real cameras.
 """
 
 from __future__ import annotations
@@ -28,4 +28,10 @@ class SyntheticDetector:
             if w * h < self._min_area:
                 continue
             out.append(Detection(float(x), float(y), float(x + w), float(y + h), 0.9))
+        white = cv2.inRange(hsv, np.array([0, 0, 225]), np.array([180, 40, 255]))
+        contours, _ = cv2.findContours(white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            if 12 <= w * h <= 200:
+                out.append(Detection(float(x), float(y), float(x + w), float(y + h), 0.8, "cup"))
         return out

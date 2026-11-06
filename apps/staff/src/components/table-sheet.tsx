@@ -101,6 +101,9 @@ function Body({
   const serve = useOutletMutation(outletId, (itemId: string) =>
     api(`/outlets/${outletId}/order-items/${itemId}`, { method: 'PATCH', body: { status: 'SERVED' } }),
   );
+  const fire = useOutletMutation(outletId, () =>
+    api(`/outlets/${outletId}/tables/${table.id}/fire`, { method: 'POST' }),
+  );
   const printBill = useOutletMutation(outletId, async () => {
     const bill = await api<Bill>(`/outlets/${outletId}/tables/${table.id}/bills`, { method: 'POST' });
     window.open(bill.invoiceUrl, '_blank', 'noopener');
@@ -110,6 +113,7 @@ function Body({
   if (picking) return <OrderPicker outletId={outletId} tableId={table.id} onDone={() => setPicking(false)} />;
 
   const actions = ACTIONS.filter((a) => allowed(table, actor, a));
+  const held = (orders.data ?? []).flatMap((o) => o.items).filter((i) => i.status === 'HELD').length;
   const due = (bills.data ?? []).filter((b) => b.status !== 'VOID').reduce((s, b) => s + b.duePaise, 0);
 
   return (
@@ -143,13 +147,21 @@ function Body({
           ))}
         </div>
       ) : null}
-      <ErrorText error={send.error ?? decide.error ?? serve.error ?? printBill.error} />
+      <ErrorText error={send.error ?? decide.error ?? serve.error ?? printBill.error ?? fire.error} />
 
       {orders.data?.length ? (
         <section aria-labelledby="o-h" className="space-y-2">
           <h3 id="o-h" className="font-semibold">
             {t('orders')}
           </h3>
+          {held ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 p-3 text-sm">
+              <span>{t('held', { count: held })}</span>
+              <Button size="sm" onClick={() => fire.mutate(undefined)} disabled={fire.isPending}>
+                {t('fire')}
+              </Button>
+            </div>
+          ) : null}
           {orders.data.map((o) => (
             <div key={o.id} className="space-y-2 rounded-xl border border-slate-200 p-3">
               <p className="flex justify-between text-sm font-medium">

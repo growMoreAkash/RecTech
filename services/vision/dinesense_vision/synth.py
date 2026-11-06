@@ -8,6 +8,7 @@ detections and false positives are injected so the debounce logic is exercised. 
   <name>.labels.csv     table_id,start_s,end_s,state   (ground-truth occupied intervals)
   <name>.zones.json     {"zones": [{"tableId", "polygon"}], "door": polygon} — the calibration a manager would draw
   <name>.arrivals.csv   time_s,size   (ground-truth parties coming through the door)
+  <name>.dirty.csv      table_id,start_s,end_s   (tableware left on the table after the party left, until cleared)
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from __future__ import annotations
 import csv
 import json
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import cv2
@@ -73,6 +74,8 @@ class Party:
     hue: int
     waiter_at: float  # waiter stands at the table from here for `waiter_for` seconds
     waiter_for: float
+    #: Cups and plates stay on the table this long after the party left (busser clears them).
+    clear_after: float = 0.0
 
     @property
     def seated_from(self) -> float:
@@ -113,6 +116,17 @@ def _blob(img: Frame, cx: float, cy: float, size: tuple[int, int], hue: int) -> 
     cv2.ellipse(img, (int(cx), int(cy)), (w // 2, h // 2), 0, 0, 360, color, -1)
 
 
+CUP = (255, 255, 255)
+
+
+def _tableware(img: Frame, tb: Table, n: int) -> None:
+    """Small white squares on the table top: cups, plates, glasses."""
+    for i in range(n):
+        x = int(tb.x + tb.w * (i + 1) / (n + 1)) - 4
+        y = int(tb.y + tb.h / 2) - 4 + (i % 2) * 10 - 5
+        cv2.rectangle(img, (x, y), (x + 8, y + 8), CUP, -1)
+
+
 def _lerp(a: tuple[float, float], b: tuple[float, float], f: float) -> tuple[float, float]:
     return a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f
 
@@ -122,6 +136,9 @@ def render(t: float, parties: list[Party], rng: random.Random, noise: bool = Tru
     for tb in TABLES:
         cv2.rectangle(img, (tb.x, tb.y), (tb.x + tb.w, tb.y + tb.h), TABLE, -1)
     for p in parties:
+        # Tableware from a minute into the meal until the busser clears it after they leave.
+        if p.seated_from + 60 <= t < p.leave + p.clear_after:
+            _tableware(img, p.table, 1 + p.size % 3)
         seats = p.table.seats(p.size)
         for k, seat in enumerate(seats):
             # Standing people are drawn so their lower-body point lands where the seated one would be.
@@ -154,6 +171,15 @@ def generate(out_dir: Path, name: str = "dining-room", seconds: float = 900, fps
     out_dir.mkdir(parents=True, exist_ok=True)
     rng = random.Random(seed)  # noqa: S311 — reproducible footage, not security
     parties = plan(seconds, rng)
+    # Separate generator so adding tableware does not change the people in existing footage.
+    crng = random.Random(seed + 1000)  # noqa: S311
+
+    def cleared(p: Party) -> Party:
+        # Always cleared before the next party at that table arrives.
+        nxt = min((q.arrive for q in parties if q.table == p.table and q.arrive > p.leave), default=seconds)
+        return replace(p, clear_after=min(crng.uniform(30, 240), max(5.0, nxt - p.leave - 5)))
+
+    parties = [cleared(p) for p in parties]
     video = out_dir / f"{name}.mp4"
     writer = cv2.VideoWriter(str(video), cv2.VideoWriter.fourcc(*"mp4v"), fps, (W, H))
     try:
@@ -172,5 +198,10 @@ def generate(out_dir: Path, name: str = "dining-room", seconds: float = 900, fps
         wr.writerow(["time_s", "size"])
         for p in sorted(parties, key=lambda p: p.arrive):
             wr.writerow([f"{p.arrive:.1f}", p.size])
+    with (out_dir / f"{name}.dirty.csv").open("w", newline="") as f:
+        wr = csv.writer(f)
+        wr.writerow(["table_id", "start_s", "end_s"])
+        for p in sorted(parties, key=lambda p: (p.table.id, p.leave)):
+            wr.writerow([p.table.id, f"{p.leave:.1f}", f"{p.leave + p.clear_after:.1f}"])
     (out_dir / f"{name}.zones.json").write_text(json.dumps(zones, indent=2) + "\n")
     return video

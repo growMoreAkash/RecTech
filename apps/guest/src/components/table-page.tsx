@@ -15,6 +15,7 @@ import {
 import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { CartSheet } from './cart-sheet';
+import { CheckIn } from './check-in';
 import { ErrorText } from './error-text';
 import { ItemSheet } from './item-sheet';
 import { LocaleToggle } from './locale-toggle';
@@ -100,6 +101,7 @@ export function TablePage({ qr }: { qr: string }) {
       ) : null}
 
       <main className="space-y-6 px-4 pt-4">
+        {s.orders?.checkIn ? <CheckIn token={s.token} /> : null}
         {landing.menu.categories.map((c) => (
           <section key={c.id} id={`cat-${c.id}`} aria-labelledby={`h-${c.id}`} className="scroll-mt-28">
             <h2 id={`h-${c.id}`} className="mb-2 text-lg font-semibold">

@@ -19,6 +19,14 @@ const env = { ...process.env, DATABASE_URL: E2E_DATABASE_URL, JWT_ACCESS_SECRET,
 const api = join(root, 'apps', 'api');
 execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], { cwd: api, env, stdio: 'inherit' });
 execFileSync('pnpm', ['exec', 'tsx', 'prisma/seed.ts'], { cwd: api, env, stdio: 'inherit' });
+// The seed's shifts are 11:00–23:00 IST; check-in opens an hour early. Make today's shifts cover "now" so the
+// suite passes at any hour (e2e database only — guarded above).
+execFileSync('pnpm', ['exec', 'prisma', 'db', 'execute', '--stdin', '--url', E2E_DATABASE_URL], {
+  cwd: api,
+  env,
+  input: `UPDATE "Shift" SET "startsAt" = now() - interval '1 hour', "endsAt" = now() + interval '11 hours';`,
+  stdio: ['pipe', 'inherit', 'inherit'],
+});
 
 for (const app of ['dashboard', 'guest', 'staff']) {
   const src = join(root, 'apps', app);

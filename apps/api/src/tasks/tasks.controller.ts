@@ -11,6 +11,7 @@ import { ApiZodQuery, ZodPipe } from '../common/zod';
 import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssignmentsService } from '../sla/assignments.service';
+import { touchSeating } from '../table-state/staff-touch';
 
 /** Staff task inbox. Most tasks complete through their real action; call-waiter/water/cutlery are ticked off here. */
 @ApiTags('tasks')
@@ -128,12 +129,14 @@ export class TasksController {
           assigneeId: t.assigneeId ?? ctx.user.sub,
         },
       });
+      // Ticking off a table task means someone was at the table.
+      if (after.seatingId) await touchSeating(tx, after.seatingId);
       await this.audit.record(
         ctx,
         { action: 'task.done', entityType: 'Task', entityId: taskId, outletId },
         tx,
       );
-      return after;
+      return tx.task.findUniqueOrThrow({ where: { id: taskId } });
     });
     this.notifier.taskUpdated(task);
     return task;

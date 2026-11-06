@@ -10,7 +10,8 @@ import { useState } from 'react';
 import { ErrorText } from './error-text';
 import { guestApi } from '@/lib/api';
 import { CheckoutUnavailable, openCheckout } from '@/lib/checkout';
-import { payTargets } from '@/lib/pay';
+import { TIP_PRESETS_PCT } from '@dinesense/shared';
+import { payTargets, type TipChoice, tipPaise } from '@/lib/pay';
 import type { CheckoutStart, GuestBills } from '@/lib/types';
 
 export function PaySheet({
@@ -31,8 +32,9 @@ export function PaySheet({
   const [error, setError] = useState<unknown>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [tip, setTip] = useState<TipChoice>({ kind: 'pct', pct: 0 });
 
-  async function pay(billId: string, shareKey?: string) {
+  async function pay(billId: string, shareKey: string | undefined, tipAmount: number) {
     setError(null);
     setFailed(null);
     setPaid(false);
@@ -41,7 +43,7 @@ export function PaySheet({
       const start = await guestApi<CheckoutStart>('/payments', {
         method: 'POST',
         token,
-        body: { billId, shareKey },
+        body: { billId, shareKey, ...(tipAmount ? { tipPaise: tipAmount } : {}) },
       });
       let result;
       try {
@@ -122,22 +124,53 @@ export function PaySheet({
               </p>
             ) : bills?.onlinePayments ? (
               <div className="space-y-2">
-                {payTargets(b).map((x) => (
-                  <Button
-                    key={x.shareKey ?? 'all'}
-                    size="lg"
-                    className="w-full"
-                    disabled={!!busy}
-                    onClick={() => void pay(b.id, x.shareKey)}
-                  >
-                    {x.shareKey
-                      ? x.label
-                        ? t('payShare', { name: x.label })
-                        : t('payShareN', { n: x.index + 1 })
-                      : t('payAll')}{' '}
-                    <Money paise={x.duePaise} />
-                  </Button>
-                ))}
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">{t('tip')}</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {TIP_PRESETS_PCT.map((pct) => {
+                      const on = tip.kind === 'pct' && tip.pct === pct;
+                      return (
+                        <button
+                          key={pct}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => setTip({ kind: 'pct', pct })}
+                          className={`min-h-10 rounded-full border px-3 text-sm ${on ? 'border-brand bg-orange-50 text-brand' : 'border-slate-300'}`}
+                        >
+                          {pct ? `${pct}%` : t('noTip')}
+                        </button>
+                      );
+                    })}
+                    <input
+                      inputMode="decimal"
+                      aria-label={t('tipCustom')}
+                      placeholder={t('tipCustom')}
+                      value={tip.kind === 'custom' ? tip.rupees : ''}
+                      onChange={(e) => setTip({ kind: 'custom', rupees: e.target.value })}
+                      className="min-h-10 w-28 rounded-full border border-slate-300 px-3 text-sm"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500">{t('tipNote')}</p>
+                </fieldset>
+                {payTargets(b).map((x) => {
+                  const extra = tipPaise(tip, x.duePaise);
+                  return (
+                    <Button
+                      key={x.shareKey ?? 'all'}
+                      size="lg"
+                      className="w-full"
+                      disabled={!!busy || extra === null}
+                      onClick={() => extra !== null && void pay(b.id, x.shareKey, extra)}
+                    >
+                      {x.shareKey
+                        ? x.label
+                          ? t('payShare', { name: x.label })
+                          : t('payShareN', { n: x.index + 1 })
+                        : t('payAll')}{' '}
+                      <Money paise={x.duePaise + (extra ?? 0)} />
+                    </Button>
+                  );
+                })}
                 {b.status === 'OPEN' ? <p className="text-xs text-slate-500">{t('finalNote')}</p> : null}
               </div>
             ) : (

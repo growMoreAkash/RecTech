@@ -37,6 +37,7 @@ const PERMISSIONS: Record<TableMachineEventType, { staff?: readonly Role[]; came
   CAMERA_VACATED: { camera: true },
   CAMERA_STAFF_PRESENT: { camera: true },
   GUEST_COUNT_CHANGED: { camera: true },
+  CAMERA_DIRTY: { camera: true },
   ORDER_ACCEPTED: {},
   FIRST_ORDER_SERVED: {},
   PAYMENT_CAPTURED: {},
@@ -70,6 +71,9 @@ const SERVICE_TASKS: readonly TaskTypeName[] = [
   'BILL',
   'SERVE',
   'APPROVE_ORDER',
+  'CHECK_TABLE',
+  'FIRE_COURSE',
+  'OFFER_DESSERT',
 ];
 const SLA_ALERTS = ['SLA_BREACH', 'REASSIGNED', 'ESCALATION', 'NO_ELIGIBLE_WAITER'] as const;
 
@@ -85,7 +89,7 @@ const closeEffects = (): Effect[] => [
   { type: 'CLOSE_SEATING' },
   { type: 'CANCEL_GREET_SLA' },
   { type: 'CANCEL_TASKS', tasks: SERVICE_TASKS },
-  { type: 'RESOLVE_ALERTS', alerts: SLA_ALERTS },
+  { type: 'RESOLVE_ALERTS', alerts: [...SLA_ALERTS, 'IDLE_TABLE'] },
   { type: 'CREATE_TASK', task: 'CLEAN' },
 ];
 
@@ -245,6 +249,10 @@ export function transition(
     // ── Manager override (row 19) ──
     case 'FORCE_STATE':
       return force(from, event.to, ctx);
+
+    // ── Camera dirty-table check: a "clean" table that still has cups or plates on it ──
+    case 'CAMERA_DIRTY':
+      return from === 'VACANT' ? ok('NEEDS_CLEANING', [{ type: 'CREATE_TASK', task: 'CLEAN' }]) : noop();
 
     // ── Camera guest count ──
     case 'GUEST_COUNT_CHANGED':

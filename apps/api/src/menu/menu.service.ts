@@ -141,6 +141,7 @@ export class MenuService {
           outletId,
           name: input.name,
           sortOrder: input.sortOrder ?? 0,
+          course: input.course ?? 'OTHER',
           availabilityWindows: json(input.availabilityWindows),
         },
       }),
@@ -160,6 +161,7 @@ export class MenuService {
         data: {
           ...(input.name ? { name: input.name } : {}),
           ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+          ...(input.course ? { course: input.course } : {}),
           ...(input.availabilityWindows !== undefined
             ? { availabilityWindows: json(input.availabilityWindows) }
             : {}),

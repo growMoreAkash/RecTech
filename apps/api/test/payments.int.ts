@@ -19,6 +19,7 @@ import {
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET!;
 const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET!;
 const run = randomId();
+const randomInt = (n: number) => Math.floor(Math.random() * n);
 const hmac = (secret: string, data: string) => createHmac('sha256', secret).update(data).digest('hex');
 
 describe('split bills and pay-at-table (M7)', () => {
@@ -38,11 +39,15 @@ describe('split bills and pay-at-table (M7)', () => {
   async function guest(tableId: string) {
     const { qrToken } = await prisma.table.findUniqueOrThrow({ where: { id: tableId } });
     return (
-      await http()
-        .post(`/api/v1/g/t/${qrToken}/session`)
-        .send({ deviceId: `dev_${randomId()}${randomId()}` })
-        .expect(201)
-    ).body.token as string;
+      (
+        await http()
+          .post(`/api/v1/g/t/${qrToken}/session`)
+          // Per-IP limits live in Redis across runs; each run looks like a different phone network.
+          .set('x-forwarded-for', `10.${randomInt(250)}.${randomInt(250)}.${randomInt(250)}`)
+          .send({ deviceId: `dev_${randomId()}${randomId()}` })
+          .expect(201)
+      ).body.token as string
+    );
   }
 
   /** Seated table with 2 × dal (₹300 each) + 1 × lassi (₹120) ordered by the waiter. */
@@ -383,5 +388,44 @@ describe('split bills and pay-at-table (M7)', () => {
     expect(r.body.salesByHour.reduce((x: number, h: { bills: number }) => x + h.bills, 0)).toBe(bills.length);
     const other = await http().get(`${o()}/reports/day?date=2020-01-01`).set(bearer(tok.manager)).expect(200);
     expect(other.body.seatings.total).toBe(0);
+  });
+
+  it('M10: an online tip rides in the same checkout but stays off the bill', async () => {
+    // A table of its own (T1–T4 are taken by the tests above).
+    const t1 = await prisma.table.findUniqueOrThrow({ where: { id: t.tables.T1 } });
+    const t5 = await prisma.table.create({
+      data: {
+        organizationId: t.organizationId,
+        outletId: t.outletId,
+        sectionId: t1.sectionId,
+        label: 'T5',
+        capacity: 4,
+        x: 500,
+        y: 500,
+        w: 80,
+        h: 80,
+        joinableWith: [],
+        qrToken: `qr_${randomId()}${randomId()}`,
+        staffQrToken: `sq_${randomId()}${randomId()}`,
+      },
+    });
+    const bill = await servedTable(t5.id);
+    const phone = await guest(t5.id);
+    const start = await http()
+      .post('/api/v1/g/payments')
+      .set(g(phone))
+      .send({ billId: bill.id, tipPaise: 7_500 })
+      .expect(200);
+    expect(start.body).toMatchObject({
+      amountPaise: 75_600 + 7_500,
+      billAmountPaise: 75_600,
+      tipPaise: 7_500,
+    });
+    expect(orders.at(-1)).toMatchObject({ amount: 83_100 });
+    await webhook('payment.captured', start.body.orderId, `pay_tip_${run}`, 83_100).expect(200);
+    const p = await prisma.payment.findFirstOrThrow({ where: { providerOrderId: start.body.orderId } });
+    expect(p).toMatchObject({ status: 'CAPTURED', amountPaise: 75_600, tipPaise: 7_500 });
+    const after = await prisma.bill.findUniqueOrThrow({ where: { id: bill.id } });
+    expect(after).toMatchObject({ status: 'PAID', totalPaise: 75_600 });
   });
 });

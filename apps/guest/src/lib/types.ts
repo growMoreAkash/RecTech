@@ -48,6 +48,8 @@ export interface GuestOrder {
   status: 'PENDING_APPROVAL' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED';
   rejectedReason: string | null;
   createdAt: string;
+  /** When the still-cooking part of the order should be ready (prep-time prediction). */
+  etaReadyAt?: string | null;
   items: {
     id: string;
     name: unknown;
@@ -61,6 +63,8 @@ export interface GuestOrder {
 export interface Orders {
   orders: GuestOrder[];
   bill: Totals;
+  /** Time to ask "How's everything?" on this phone. */
+  checkIn?: boolean;
 }
 
 export interface GuestShare {
@@ -93,7 +97,10 @@ export interface CheckoutStart {
   provider: string;
   keyId: string;
   orderId: string;
+  /** What the checkout charges: bill amount + tip. */
   amountPaise: number;
+  billAmountPaise?: number;
+  tipPaise?: number;
   currency: string;
   name: string;
   description: string;

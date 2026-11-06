@@ -251,6 +251,7 @@ export class BillingService {
           });
       }
       const now = new Date();
+      const tipPaise = input.tipPaise ?? 0;
       await tx.payment.create({
         data: {
           organizationId,
@@ -259,6 +260,8 @@ export class BillingService {
           method: input.method,
           status: 'CAPTURED',
           amountPaise: input.amountPaise,
+          tipPaise,
+          tipWaiterId: tipPaise ? await this.tipWaiter(tx, b.seatingId) : null,
           reference: input.reference ?? null,
           shareKey: input.shareKey ?? null,
           receivedById: audit.type === 'USER' ? (audit.id ?? null) : null,
@@ -278,7 +281,13 @@ export class BillingService {
           entityType: 'Bill',
           entityId: billId,
           outletId,
-          after: { method: input.method, amountPaise: input.amountPaise, shareKey: input.shareKey, settled },
+          after: {
+            method: input.method,
+            amountPaise: input.amountPaise,
+            tipPaise: input.tipPaise ?? 0,
+            shareKey: input.shareKey,
+            settled,
+          },
         },
         tx,
       );
@@ -304,6 +313,7 @@ export class BillingService {
     shareKey: string | undefined,
     provider: string,
     audit: AuditActor,
+    tipPaise = 0,
   ) {
     const current = await this.prisma.bill.findFirst({
       where: { id: billId, organizationId: g.org, outletId: g.out, seatingId: g.seat },
@@ -330,6 +340,7 @@ export class BillingService {
           p.provider === provider &&
           p.providerOrderId &&
           p.amountPaise === amount &&
+          p.tipPaise === tipPaise &&
           (p.shareKey ?? undefined) === shareKey &&
           now - p.createdAt.getTime() < PENDING_PAYMENT_WINDOW_MS,
       );
@@ -342,6 +353,8 @@ export class BillingService {
           method: 'RAZORPAY',
           status: 'PENDING',
           amountPaise: amount,
+          tipPaise,
+          tipWaiterId: tipPaise ? await this.tipWaiter(tx, b.seatingId) : null,
           shareKey: shareKey ?? null,
           provider,
         },
@@ -368,9 +381,9 @@ export class BillingService {
   /**
    * Marks an online payment captured (idempotent: browser callback and webhook may both arrive). Money that
    * arrives for an already-settled bill is still recorded — it was taken — and flagged in the audit log for a
-   * refund from the provider dashboard.
+   * refund from the provider dashboard. `grossPaise` is what the provider charged: bill amount + tip.
    */
-  async captureOnline(providerOrderId: string, providerPaymentId: string, amountPaise?: number) {
+  async captureOnline(providerOrderId: string, providerPaymentId: string, grossPaise?: number) {
     const found = await this.prisma.payment.findUnique({ where: { providerOrderId } });
     if (!found) return null;
     const audit: AuditActor = { organizationId: found.organizationId, type: 'SYSTEM' };
@@ -378,15 +391,21 @@ export class BillingService {
       const b = await this.lockBill(tx, found.organizationId, found.outletId, found.billId);
       const p = b.payments.find((x) => x.id === found.id)!;
       if (p.status === 'CAPTURED') return null;
-      const amount = amountPaise ?? p.amountPaise;
-      if (amount !== p.amountPaise)
-        this.logger.warn(`online payment ${providerPaymentId}: amount ${amount} ≠ expected ${p.amountPaise}`);
+      const gross = grossPaise ?? p.amountPaise + p.tipPaise;
+      if (gross !== p.amountPaise + p.tipPaise)
+        this.logger.warn(
+          `online payment ${providerPaymentId}: charged ${gross} ≠ expected ${p.amountPaise + p.tipPaise}`,
+        );
+      // The tip comes out of what was charged last, so a short charge never hides part of the bill.
+      const amount = Math.max(0, gross - p.tipPaise);
+      const tip = gross - amount;
       const now = new Date();
       await tx.payment.update({
         where: { id: p.id },
         data: {
           status: 'CAPTURED',
           amountPaise: amount,
+          tipPaise: tip,
           providerPaymentId,
           reference: providerPaymentId,
           capturedAt: now,
@@ -412,6 +431,7 @@ export class BillingService {
           after: {
             method: 'RAZORPAY',
             amountPaise: amount,
+            tipPaise: tip,
             shareKey: p.shareKey,
             providerPaymentId,
             settled: settle,
@@ -430,6 +450,12 @@ export class BillingService {
       await this.maybeMarkTablePaid(result.organizationId, result.outletId, result.seatingId, audit);
     this.announce(result.outletId, result);
     return this.view(result);
+  }
+
+  /** Tips go to whoever is serving the table when it pays. */
+  private async tipWaiter(tx: Tx, seatingId: string): Promise<string | null> {
+    const s = await tx.seating.findUnique({ where: { id: seatingId }, select: { servingWaiterId: true } });
+    return s?.servingWaiterId ?? null;
   }
 
   /** Bills of the guest's seating as the guest sees them (no staff ids). */

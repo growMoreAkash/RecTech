@@ -1,7 +1,8 @@
 """YOLOX person detector on ONNX Runtime (CPU, or CUDA when available).
 
 Model: Megvii YOLOX (Apache-2.0) COCO weights exported to ONNX, downloaded by `ds-vision fetch-model`.
-Only class 0 (person) is used.
+Class 0 (person) drives occupancy; the COCO tableware classes (cup, bowl, bottle, wine glass, fork, knife, spoon)
+feed the dirty-table check.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 
-from .base import Detection, Frame
+from .base import TABLEWARE, Detection, Frame
 
 MODELS: dict[str, tuple[str, str]] = {
     # name: (url, sha256)
@@ -75,6 +76,25 @@ def persons(decoded: FloatArray, ratio: float, min_confidence: float, nms_iou: f
     return out
 
 
+def tableware(decoded: FloatArray, ratio: float, min_confidence: float, nms_iou: float = 0.45) -> list[Detection]:
+    """Boxes whose best COCO class is a tableware class (column 5 + class id)."""
+    if decoded.shape[1] < 85:
+        return []
+    cls = decoded[:, 5:85].argmax(axis=1)
+    scores = decoded[:, 4] * decoded[np.arange(len(decoded)), 5 + cls]
+    keep = np.isin(cls, list(TABLEWARE)) & (scores >= min_confidence)
+    if not keep.any():
+        return []
+    boxes, scores, cls = decoded[keep, :4] / ratio, scores[keep], cls[keep]
+    xywh = [[float(cx - bw / 2), float(cy - bh / 2), float(bw), float(bh)] for cx, cy, bw, bh in boxes]
+    idx = cv2.dnn.NMSBoxes(xywh, scores.tolist(), min_confidence, nms_iou)
+    out = []
+    for i in np.array(idx).reshape(-1):
+        x, y, bw, bh = xywh[int(i)]
+        out.append(Detection(x, y, x + bw, y + bh, float(scores[int(i)]), TABLEWARE[int(cls[int(i)])]))
+    return out
+
+
 class YoloxDetector:
     def __init__(self, model_path: Path, min_confidence: float = 0.35) -> None:
         import onnxruntime as ort
@@ -91,4 +111,5 @@ class YoloxDetector:
     def detect(self, frame: Frame) -> list[Detection]:
         blob, ratio = letterbox(frame, self._size)
         (raw,) = self._session.run(None, {self._input: blob})
-        return persons(decode(np.asarray(raw), self._size), ratio, self._min_confidence)
+        decoded = decode(np.asarray(raw), self._size)
+        return persons(decoded, ratio, self._min_confidence) + tableware(decoded, ratio, self._min_confidence)

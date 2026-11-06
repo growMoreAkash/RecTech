@@ -1,10 +1,13 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { TaskType } from '@prisma/client';
+import type { Alert, Task, TaskType } from '@prisma/client';
 import {
   CART_LIMITS,
   type CartLineView,
   type GuestAction,
+  midMealCheckDue,
+  type MidMealFeedbackInput,
   type OrderLineInput,
+  orderEta,
   rooms,
   runningTotal,
 } from '@dinesense/shared';
@@ -204,13 +207,25 @@ export class GuestService {
     const billable = orders
       .filter((o) => o.status === 'ACCEPTED')
       .flatMap((o) => o.items.filter((i) => i.status !== 'VOID'));
+    const now = new Date();
+    const [settings, answered] = await Promise.all([
+      this.prisma.outletSettings.findUniqueOrThrow({
+        where: { outletId: g.out },
+        select: { midMealCheckMinutes: true },
+      }),
+      this.prisma.feedback.count({ where: { seatingId: g.seat, guestSessionId: g.sid, kind: 'MID_MEAL' } }),
+    ]);
+    const served = billable.flatMap((i) => (i.servedAt ? [i.servedAt.getTime()] : []));
+    const firstServedAt = served.length ? new Date(Math.min(...served)) : null;
     return {
+      checkIn: midMealCheckDue(firstServedAt, settings.midMealCheckMinutes, answered > 0, now),
       orders: orders.map((o) => ({
         id: o.id,
         number: o.number,
         status: o.status,
         rejectedReason: o.rejectedReason,
         createdAt: o.createdAt,
+        etaReadyAt: o.status === 'ACCEPTED' ? (orderEta(o.items, now)?.toISOString() ?? null) : null,
         items: o.items.map((i) => ({
           id: i.id,
           name: i.nameSnapshot,
@@ -222,6 +237,79 @@ export class GuestService {
       })),
       bill: runningTotal(billable),
     };
+  }
+
+  /**
+   * Mid-meal "How's everything?" (once per device). A thumbs-down raises a GUEST_UNHAPPY alert and a
+   * SERVICE_RECOVERY task for the managers right away, while the guests are still at the table.
+   */
+  async feedback(g: GuestClaims, input: MidMealFeedbackInput) {
+    const comment = input.comment?.trim() || null;
+    const out = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.feedback.findFirst({
+        where: { seatingId: g.seat, guestSessionId: g.sid, kind: 'MID_MEAL' },
+      });
+      if (existing) return { duplicate: true as const };
+      await tx.feedback.create({
+        data: {
+          organizationId: g.org,
+          outletId: g.out,
+          seatingId: g.seat,
+          guestSessionId: g.sid,
+          positive: input.positive,
+          comment,
+        },
+      });
+      if (input.positive) return { duplicate: false as const };
+      const table = await tx.table.findUniqueOrThrow({ where: { id: g.tbl }, select: { label: true } });
+      const seating = await tx.seating.findUniqueOrThrow({
+        where: { id: g.seat },
+        select: { servingWaiterId: true },
+      });
+      const alert = await tx.alert.create({
+        data: {
+          organizationId: g.org,
+          outletId: g.out,
+          type: 'GUEST_UNHAPPY',
+          severity: 'WARNING',
+          tableId: g.tbl,
+          seatingId: g.seat,
+          message: `Table ${table.label} is not happy${comment ? `: “${comment}”` : ''}`,
+          payload: { comment, waiterId: seating.servingWaiterId },
+          dedupeKey: `GUEST_UNHAPPY:${g.seat}:${g.sid}`,
+        },
+      });
+      const task = await tx.task.create({
+        data: {
+          organizationId: g.org,
+          outletId: g.out,
+          type: 'SERVICE_RECOVERY',
+          tableId: g.tbl,
+          seatingId: g.seat,
+          payload: { comment, alertId: alert.id },
+        },
+      });
+      return { duplicate: false as const, alert, task };
+    });
+    if ('alert' in out) {
+      const { alert, task } = out as { alert: Alert; task: Task };
+      this.realtime.emit(
+        [rooms.role('MANAGER', g.out), rooms.role('OWNER', g.out), rooms.role('HOST', g.out)],
+        'alert.created',
+        {
+          id: alert.id,
+          outletId: g.out,
+          type: alert.type,
+          severity: alert.severity,
+          status: alert.status,
+          tableId: alert.tableId,
+          message: alert.message,
+          createdAt: alert.createdAt.toISOString(),
+        },
+      );
+      await Promise.allSettled([this.notifier.alertRaised(alert), this.notifier.taskCreated(task)]);
+    }
+    return { ok: true, duplicate: out.duplicate };
   }
 
   /** Call waiter / water / cutlery create a task for the serving waiter; "bill" moves the table to BILL_REQUESTED. */

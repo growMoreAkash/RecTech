@@ -64,6 +64,7 @@ function BillCard({ bill }: { bill: Bill }) {
     paiseToRupees(bill.split?.shares.find((s) => s.duePaise)?.duePaise ?? bill.duePaise),
   );
   const [reference, setReference] = useState('');
+  const [tip, setTip] = useState('');
   const firstDue = bill.split?.shares.find((s) => s.duePaise);
   const [shareKey, setShareKey] = useState(firstDue?.key ?? '');
   const splitter = desk || can('WAITER');
@@ -89,6 +90,7 @@ function BillCard({ bill }: { bill: Bill }) {
     });
   };
   const amountPaise = rupeesToPaise(amount);
+  const tipPaise = tip.trim() ? rupeesToPaise(tip) : 0;
 
   return (
     <article
@@ -141,6 +143,7 @@ function BillCard({ bill }: { bill: Bill }) {
                     {t(`methods.${p.method}`)}
                     {i >= 0 && bill.split ? ` · ${shareName(t, bill.split.shares[i]!, i)}` : ''}
                     {p.reference ? ` · ${p.reference}` : ''}
+                    {p.tipPaise ? ` · ${t('tipShort', { amount: paiseToRupees(p.tipPaise) })}` : ''}
                   </span>
                   <Money paise={p.amountPaise} />
                 </li>
@@ -246,19 +249,34 @@ function BillCard({ bill }: { bill: Bill }) {
                 className="w-32"
               />
             ) : null}
+            <Input
+              aria-label={t('tip')}
+              placeholder={t('tip')}
+              inputMode="decimal"
+              value={tip}
+              onChange={(e) => setTip(e.target.value)}
+              className="w-28"
+            />
             <Button
               size="sm"
-              disabled={pay.isPending || !amountPaise}
+              disabled={pay.isPending || !amountPaise || tipPaise === null}
               onClick={() =>
                 amountPaise &&
+                tipPaise !== null &&
                 pay.mutate(
                   {
                     method,
                     amountPaise,
+                    ...(tipPaise ? { tipPaise } : {}),
                     ...(reference.trim() ? { reference: reference.trim() } : {}),
                     ...(bill.split && shareKey ? { shareKey } : {}),
                   },
-                  { onSuccess: () => setReference('') },
+                  {
+                    onSuccess: () => {
+                      setReference('');
+                      setTip('');
+                    },
+                  },
                 )
               }
             >

@@ -13,6 +13,7 @@ import type { Order } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const STATUS_TONE: Record<string, string> = {
+  HELD: 'bg-slate-50 text-slate-500 italic',
   QUEUED: 'bg-slate-100',
   COOKING: 'bg-amber-100 text-amber-900',
   READY: 'bg-emerald-100 text-emerald-900',
@@ -20,7 +21,7 @@ const STATUS_TONE: Record<string, string> = {
   VOID: 'bg-slate-100 text-slate-400 line-through',
 };
 
-/** One order with approval (pending QR orders) and "served" for ready items. */
+/** One order with approval (pending QR orders), "served" for ready items and "fire mains" for held courses. */
 export function OrderCard({ order, showTable = false }: { order: Order; showTable?: boolean }) {
   const t = useTranslations('orders');
   const ts = useTranslations('guest.itemStatus');
@@ -39,6 +40,11 @@ export function OrderCard({ order, showTable = false }: { order: Order; showTabl
   const serve = useOutletMutation(outlet.id, (id: string) =>
     api(`/outlets/${outlet.id}/order-items/${id}`, { method: 'PATCH', body: { status: 'SERVED' } }),
   );
+  const fire = useOutletMutation(outlet.id, (tableId: string) =>
+    api(`/outlets/${outlet.id}/tables/${tableId}/fire`, { method: 'POST' }),
+  );
+  const held = order.items.filter((i) => i.status === 'HELD').length;
+  const tableId = order.seating.tables[0]?.table.id;
   const total = order.items
     .filter((i) => i.status !== 'VOID')
     .reduce((s, i) => s + i.unitPricePaise * i.quantity, 0);
@@ -83,6 +89,21 @@ export function OrderCard({ order, showTable = false }: { order: Order; showTabl
           </li>
         ))}
       </ul>
+      {held && tableId ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 p-2 text-xs">
+          <span>{t('held', { count: held })}</span>
+          {canServe ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => fire.mutate(tableId)}
+              disabled={fire.isPending}
+            >
+              {t('fire')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <p className="text-right text-sm">
         <Money paise={total} /> <span className="text-xs text-slate-500">{t('beforeTax')}</span>
       </p>
@@ -118,7 +139,7 @@ export function OrderCard({ order, showTable = false }: { order: Order; showTabl
       {order.status === 'REJECTED' && order.rejectedReason ? (
         <p className="text-xs text-red-700">{order.rejectedReason}</p>
       ) : null}
-      <ErrorText error={decide.error ?? serve.error} />
+      <ErrorText error={decide.error ?? serve.error ?? fire.error} />
     </article>
   );
 }

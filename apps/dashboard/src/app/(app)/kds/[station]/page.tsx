@@ -2,7 +2,7 @@
 
 import { localized } from '@dinesense/shared';
 import { Button } from '@dinesense/ui/button';
-import { useLocale, useTranslations } from 'next-intl';
+import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { use } from 'react';
 import { ErrorText } from '@/components/error-text';
 import { api } from '@/lib/api';
@@ -19,6 +19,7 @@ const AGE_STYLE: Record<TicketAge, string> = {
   late: 'border-red-600 bg-red-50',
 };
 const ITEM_STYLE: Record<OrderItemStatus, string> = {
+  HELD: 'bg-slate-50 text-slate-500 italic',
   QUEUED: 'bg-white',
   COOKING: 'bg-amber-100',
   READY: 'bg-emerald-100 text-emerald-900',
@@ -26,12 +27,16 @@ const ITEM_STYLE: Record<OrderItemStatus, string> = {
   VOID: 'bg-slate-100 line-through',
 };
 
-/** Kitchen display for one station. Tap an item to advance it; Bump marks the whole ticket ready. */
+/**
+ * Kitchen display for one station. Tap an item to advance it; Bump marks the whole ticket ready. Held courses
+ * (pacing) are shown greyed so the kitchen can plan, but cannot be started until the floor fires them.
+ */
 export default function KdsStation({ params }: { params: Promise<{ station: string }> }) {
   const { station } = use(params);
   const t = useTranslations('kds');
   const ts = useTranslations('guest.itemStatus');
   const locale = useLocale();
+  const format = useFormatter();
   const now = useNow(1000);
   const { outlet } = useSession();
   const board = useKds(outlet.id, station);
@@ -60,7 +65,7 @@ export default function KdsStation({ params }: { params: Promise<{ station: stri
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {tickets.map((k) => {
           const age = ticketAge(k.firedAt, now);
-          const pending = k.items.some((i) => i.status !== 'READY');
+          const pending = k.items.some((i) => i.status === 'QUEUED' || i.status === 'COOKING');
           return (
             <li
               key={k.orderId}
@@ -104,7 +109,28 @@ export default function KdsStation({ params }: { params: Promise<{ station: stri
                             <span className="block text-sm font-medium text-red-700">“{i.note}”</span>
                           ) : null}
                         </span>
-                        <span className="shrink-0 text-xs uppercase">{ts(i.status)}</span>
+                        <span className="shrink-0 text-right text-xs">
+                          <span className="block uppercase">
+                            {i.status === 'HELD' ? t('held') : ts(i.status)}
+                          </span>
+                          {i.etaReadyAt && (i.status === 'QUEUED' || i.status === 'COOKING') ? (
+                            <span
+                              className={cn(
+                                'block tabular-nums',
+                                Date.parse(i.etaReadyAt) < now && 'font-semibold text-red-700',
+                              )}
+                            >
+                              {Date.parse(i.etaReadyAt) < now
+                                ? t('late')
+                                : t('eta', {
+                                    time: format.dateTime(new Date(i.etaReadyAt), {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    }),
+                                  })}
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
                     </li>
                   );

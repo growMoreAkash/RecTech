@@ -213,7 +213,9 @@
       "INFO": "Info",
       "WARNING": "Warning",
       "CRITICAL": "Critical"
-    }
+    },
+    "IDLE_TABLE": "Nobody has been to the table for a while",
+    "GUEST_UNHAPPY": "Guests are not happy"
   },
   "editor": {
     "title": "Floor plan editor",
@@ -335,7 +337,8 @@
       "COOKING": "Cooking",
       "READY": "Ready",
       "SERVED": "Served",
-      "VOID": "Cancelled"
+      "VOID": "Cancelled",
+      "HELD": "After your starters"
     },
     "runningBill": "Running bill",
     "billNote": "Estimate. Service charge and discounts appear on the final bill.",
@@ -387,7 +390,26 @@
       "atCounter": "Please pay at the counter or ask your server.",
       "invoice": "View tax invoice",
       "secure": "UPI and cards via Razorpay. Card details never reach the restaurant.",
-      "payShareN": "Pay share {n}"
+      "payShareN": "Pay share {n}",
+      "tip": "Add a tip for your server",
+      "noTip": "No tip",
+      "tipCustom": "Other (₹)",
+      "tipNote": "Tips go to your server and are not part of the bill or GST.",
+      "payWithTip": "Pay {amount} (incl. tip {tip})"
+    },
+    "eta": {
+      "readyIn": "Ready in about {minutes} min",
+      "anyMinute": "Ready any minute"
+    },
+    "checkIn": {
+      "title": "How's everything?",
+      "good": "All good",
+      "bad": "Not great",
+      "commentLabel": "What can we fix? (optional)",
+      "send": "Send",
+      "thanksGood": "Thank you! Enjoy your meal.",
+      "thanksBad": "Sorry about that — a manager is on the way.",
+      "later": "Not now"
     }
   },
   "kds": {
@@ -395,7 +417,10 @@
     "open": "{count, plural, one {# open ticket} other {# open tickets}}",
     "allClear": "All clear — no open tickets.",
     "ticket": "Ticket {n}",
-    "bump": "Bump (all ready)"
+    "bump": "Bump (all ready)",
+    "held": "Held — waits for starters",
+    "eta": "due {time}",
+    "late": "late"
   },
   "menuAdmin": {
     "title": "Menu",
@@ -435,7 +460,15 @@
     "options": "Options (price change in ₹)",
     "optionName": "Option name",
     "priceChange": "Price change",
-    "addOption": "Add option"
+    "addOption": "Add option",
+    "course": {
+      "label": "Course (for pacing)",
+      "DRINK": "Drinks",
+      "STARTER": "Starters",
+      "MAIN": "Mains",
+      "DESSERT": "Desserts",
+      "OTHER": "Other"
+    }
   },
   "orders": {
     "title": "Orders",
@@ -455,7 +488,10 @@
     "approve": "Approve",
     "rejectReason": "Reason to reject",
     "reject": "Reject",
-    "pending": "{count, plural, one {# order} other {# orders}} waiting for approval"
+    "pending": "{count, plural, one {# order} other {# orders}} waiting for approval",
+    "held": "{count, plural, one {# item held} other {# items held}} until starters are served",
+    "fire": "Fire mains now",
+    "eta": "ready ~{time}"
   },
   "qr": {
     "link": "Table QR codes",
@@ -474,7 +510,11 @@
     "SERVE": "Food ready for table {table}",
     "CLEAN": "Clean table {table}",
     "APPROVE_ORDER": "New QR order from table {table} — approve it",
-    "alert": "Alert at table {table}"
+    "alert": "Alert at table {table}",
+    "CHECK_TABLE": "Check on table {table}",
+    "FIRE_COURSE": "Table {table}: fire mains?",
+    "OFFER_DESSERT": "Offer dessert at table {table}",
+    "SERVICE_RECOVERY": "Unhappy guests at table {table}"
   },
   "staffApp": {
     "live": "Live",
@@ -522,13 +562,18 @@
         "BILL": "Bill for table {table}",
         "SERVE": "Serve table {table}",
         "CLEAN": "Clean table {table}",
-        "APPROVE_ORDER": "Approve QR order — table {table}"
+        "APPROVE_ORDER": "Approve QR order — table {table}",
+        "CHECK_TABLE": "Check on table {table} — nobody has been there for a while",
+        "FIRE_COURSE": "Table {table} finished starters — fire mains?",
+        "OFFER_DESSERT": "Offer dessert to table {table}",
+        "SERVICE_RECOVERY": "Table {table} is unhappy — go and talk to them"
       },
       "action": {
         "done": "Done",
         "greet": "At table (greet)",
         "clean": "Cleaned",
-        "openTable": "Open table"
+        "openTable": "Open table",
+        "fire": "Fire mains"
       },
       "onMyWay": "On my way",
       "acknowledged": "You're on it"
@@ -557,7 +602,9 @@
       "bill": "Bill",
       "due": "Due:",
       "printBill": "Print bill",
-      "cashierHint": "The cashier collects the payment."
+      "cashierHint": "The cashier collects the payment.",
+      "held": "{count, plural, one {# item waits} other {# items wait}} for the starters",
+      "fire": "Fire mains"
     },
     "picker": {
       "search": "Search dishes",
@@ -676,7 +723,9 @@
         "BY_ITEM": "By item",
         "CUSTOM": "Custom amounts"
       }
-    }
+    },
+    "tip": "Tip (₹, for the waiter)",
+    "tipShort": "tip {amount}"
   },
   "audit": {
     "title": "Audit log",
@@ -792,6 +841,18 @@
       "enabled": "Guests can join the waitlist by QR",
       "hold": "Hold a ready table for (min)",
       "maxParty": "Largest party that can join by QR"
+    },
+    "service": {
+      "title": "Service on the floor",
+      "hint": "Nudges for tables nobody has visited, course pacing, dessert offers, the mid-meal check-in and the camera dirty-table check. 0 turns a rule off.",
+      "idleNudge": "Nudge the waiter after no visit for (min)",
+      "idleAlert": "Alert managers after no visit for (min)",
+      "pacing": "Course pacing: hold mains until starters are served",
+      "fireAfter": "Prompt \"fire mains\" after starters (min)",
+      "autoFire": "Fire held mains anyway after (min, 0 = never)",
+      "dessert": "Offer dessert after mains (min)",
+      "midMeal": "Ask QR guests \"How's everything?\" after first food (min)",
+      "dirty": "Cups/plates on an empty table for (seconds) → needs cleaning"
     }
   },
   "cameras": {
@@ -913,7 +974,20 @@
       "CARD": "Card",
       "RAZORPAY": "Online (Razorpay)",
       "OTHER": "Other"
-    }
+    },
+    "service": {
+      "title": "Service quality",
+      "prepAccuracy": "Prep-time ETAs within 5 min",
+      "prepError": "avg error {value} min over {count, plural, one {# item} other {# items}}",
+      "midMeal": "Mid-meal check-ins",
+      "midMealCounts": "{positive} 👍 · {negative} 👎",
+      "idleAlerts": "Idle-table alerts",
+      "dirty": "Dirty tables found by camera",
+      "noData": "—"
+    },
+    "tips": "Tips",
+    "tipsTotal": "Tips (not in sales)",
+    "tipsUnattributed": "{amount} with no serving waiter"
   },
   "bookings": {
     "title": "Bookings",

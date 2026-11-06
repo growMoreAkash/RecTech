@@ -134,6 +134,7 @@ export interface MenuCategory {
   id: string;
   name: { en: string; hi?: string };
   sortOrder: number;
+  course?: Course;
 }
 
 export interface MenuItem {
@@ -159,7 +160,8 @@ export interface Menu {
   modifierGroups: ModifierGroup[];
 }
 
-export type OrderItemStatus = 'QUEUED' | 'COOKING' | 'READY' | 'SERVED' | 'VOID';
+export type OrderItemStatus = 'HELD' | 'QUEUED' | 'COOKING' | 'READY' | 'SERVED' | 'VOID';
+export type Course = 'DRINK' | 'STARTER' | 'MAIN' | 'DESSERT' | 'OTHER';
 
 export interface OrderItem {
   id: string;
@@ -169,6 +171,9 @@ export interface OrderItem {
   modifiers: { name: unknown }[];
   note: string | null;
   status: OrderItemStatus;
+  course?: Course;
+  queuedAt?: string;
+  etaReadyAt?: string | null;
 }
 
 export interface Order {
@@ -196,7 +201,9 @@ export interface KdsTicket {
     modifiers: { name: unknown }[];
     note: string | null;
     status: OrderItemStatus;
+    course?: Course;
     queuedAt: string;
+    etaReadyAt: string | null;
   }[];
 }
 
@@ -220,6 +227,8 @@ export interface Payment {
   method: 'CASH' | 'UPI' | 'CARD' | 'RAZORPAY' | 'OTHER';
   status: string;
   amountPaise: number;
+  /** On top of the amount; never part of the bill. */
+  tipPaise?: number;
   reference: string | null;
   capturedAt: string | null;
   shareKey: string | null;
@@ -340,10 +349,18 @@ export interface DayReport {
     acknowledged: number;
     missed: number;
     avgAckSeconds: number | null;
+    tipsPaise: number;
   }[];
   salesByHour: { hour: number; bills: number; totalPaise: number }[];
   payments: { method: Payment['method']; count: number; amountPaise: number }[];
   sales: { bills: number; totalPaise: number; avgBillPaise: number | null };
+  tips: { totalPaise: number; unattributedPaise: number };
+  service: {
+    prep: { items: number; meanAbsErrorSeconds: number | null; within5MinPct: number | null };
+    midMeal: { positive: number; negative: number };
+    idleAlerts: number;
+    dirtyTablesFound: number;
+  };
 }
 
 export type ConsentFlags = Partial<Record<'WHATSAPP' | 'FEEDBACK' | 'MARKETING', boolean>>;

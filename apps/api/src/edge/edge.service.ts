@@ -51,6 +51,7 @@ export class EdgeService {
         occupancyConfirmSeconds: settings.occupancyConfirmSeconds,
         vacancyConfirmSeconds: settings.vacancyConfirmSeconds,
         staffPresentSeconds: settings.staffPresentSeconds,
+        dirtyConfirmSeconds: settings.dirtyConfirmSeconds,
       },
       cameras: cameras.map((c) => ({
         id: c.id,
@@ -160,7 +161,9 @@ export class EdgeService {
           ? { type: 'CAMERA_VACATED' }
           : e.type === 'table.guest_count_changed'
             ? { type: 'GUEST_COUNT_CHANGED', guestCount: e.payload.guestCount }
-            : { type: 'CAMERA_STAFF_PRESENT', seconds: e.payload.seconds, confidence: e.confidence };
+            : e.type === 'table.dirty'
+              ? { type: 'CAMERA_DIRTY', seconds: e.payload.seconds }
+              : { type: 'CAMERA_STAFF_PRESENT', seconds: e.payload.seconds, confidence: e.confidence };
     const audit: AuditActor = { organizationId: device.organizationId, type: 'DEVICE', id: device.id };
     await this.tables.apply({
       organizationId: device.organizationId,

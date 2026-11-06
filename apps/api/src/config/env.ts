@@ -52,6 +52,8 @@ const envSchema = z.object({
   GUEST_RETENTION_SWEEP_SECONDS: z.coerce.number().int().min(0).default(3600),
   /** How often table holds / no-shows for bookings are processed (seconds; 0 disables, tests call sweep()). */
   RESERVATION_SWEEP_SECONDS: z.coerce.number().int().min(0).default(30),
+  /** How often idle tables, course pacing and dessert prompts are evaluated (seconds; 0 disables, tests call sweep()). */
+  SERVICE_SWEEP_SECONDS: z.coerce.number().int().min(0).default(30),
   /** Public URL of the guest app (links in messages: manage booking, waitlist status). */
   GUEST_APP_URL: z.string().url().default('http://localhost:3001'),
   /**

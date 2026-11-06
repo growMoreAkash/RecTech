@@ -53,12 +53,15 @@ def _detector(name: str, model: str, min_conf: float) -> Detector:
 
 
 def _cmd_eval(args: argparse.Namespace) -> int:
-    from .evaluate import evaluate, load_arrivals, load_door, load_labels, load_zones
+    from .evaluate import evaluate, load_arrivals, load_dirty, load_door, load_labels, load_zones
     from .models import EdgeSettings
     from .sources import iter_video
 
     settings = EdgeSettings(
-        occupancyConfirmSeconds=args.confirm, vacancyConfirmSeconds=args.vacancy, staffPresentSeconds=args.staff
+        occupancyConfirmSeconds=args.confirm,
+        vacancyConfirmSeconds=args.vacancy,
+        staffPresentSeconds=args.staff,
+        dirtyConfirmSeconds=args.dirty_confirm,
     )
     started = time.monotonic()
     report = evaluate(
@@ -69,6 +72,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         settings,
         door=load_door(Path(args.zones)),
         arrivals=load_arrivals(Path(args.arrivals)) if args.arrivals else None,
+        dirty=load_dirty(Path(args.dirty)) if args.dirty else None,
     )
     print(report.text())
     print(f"(evaluated in {time.monotonic() - started:.1f}s)")
@@ -88,7 +92,8 @@ def _cmd_snapshot(args: argparse.Namespace) -> int:
     if frame is None:
         print("no frame received", file=sys.stderr)
         return 1
-    people = _detector(args.detector, args.model, 0.35).detect(frame) if args.detector != "none" else []
+    found = _detector(args.detector, args.model, 0.35).detect(frame) if args.detector != "none" else []
+    people = [d for d in found if d.label == "person"]
     Path(args.out).write_bytes(snapshot_jpeg(frame, people))
     print(f"wrote {args.out} (heads/faces pixelated)")
     return 0
@@ -186,10 +191,12 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--labels", required=True, help="CSV: table_id,start_s,end_s,state")
     e.add_argument("--zones", required=True, help='JSON: {"zones": [{"tableId", "polygon"}]}')
     e.add_argument("--arrivals", help="CSV: time_s,size (party arrivals at the door, from synth)")
+    e.add_argument("--dirty", help="CSV: table_id,start_s,end_s (tableware left on empty tables, from synth)")
     e.add_argument("--fps", type=float, default=3)
     e.add_argument("--confirm", type=float, default=30)
     e.add_argument("--vacancy", type=float, default=90)
     e.add_argument("--staff", type=float, default=10)
+    e.add_argument("--dirty-confirm", type=float, default=20)
     e.add_argument("--target", type=float, default=0.95, help="exit 1 below this adjusted accuracy")
     e.set_defaults(fn=_cmd_eval)
 

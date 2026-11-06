@@ -37,7 +37,7 @@ export class GuestPaymentsController {
   @ApiZodBody(guestPaySchema)
   async start(@Guest() g: GuestClaims, @Body(new ZodPipe(guestPaySchema)) body: GuestPayInput) {
     await this.limit.hit(`g-pay:${g.seat}`, 10, 300);
-    return this.payments.start(g, body.billId, body.shareKey);
+    return this.payments.start(g, body.billId, body.shareKey, body.tipPaise ?? 0);
   }
 
   @Post('payments/verify')

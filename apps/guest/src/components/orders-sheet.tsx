@@ -8,12 +8,19 @@ import { Totals } from './totals';
 import type { Orders } from '@/lib/types';
 
 const ITEM_TONE: Record<string, string> = {
+  HELD: 'bg-slate-50 text-slate-500',
   QUEUED: 'bg-slate-100 text-slate-700',
   COOKING: 'bg-amber-100 text-amber-800',
   READY: 'bg-sky-100 text-sky-800',
   SERVED: 'bg-emerald-100 text-emerald-800',
   VOID: 'bg-slate-100 text-slate-400 line-through',
 };
+
+/** "Ready in about 12 min" from the predicted time (never negative: late food is "any minute"). */
+export function etaMinutes(etaReadyAt: string | null | undefined, now: number): number | null {
+  if (!etaReadyAt) return null;
+  return Math.max(0, Math.ceil((Date.parse(etaReadyAt) - now) / 60_000));
+}
 
 /** Guests care whether food is coming: an accepted order whose items are all served reads "Served". */
 export function displayStatus(o: Orders['orders'][number]): Orders['orders'][number]['status'] | 'DONE' {
@@ -49,6 +56,14 @@ export function OrdersSheet({
               <span>{t('orderNumber', { n: o.number })}</span>
               <span className="text-sm">{t(`orderStatus.${displayStatus(o)}`)}</span>
             </p>
+            {(() => {
+              const m = etaMinutes(o.etaReadyAt, Date.now());
+              return m === null ? null : (
+                <p className="text-sm text-amber-800">
+                  {m > 1 ? t('eta.readyIn', { minutes: m }) : t('eta.anyMinute')}
+                </p>
+              );
+            })()}
             {o.status === 'REJECTED' && o.rejectedReason ? (
               <p className="text-sm text-red-700">{o.rejectedReason}</p>
             ) : null}

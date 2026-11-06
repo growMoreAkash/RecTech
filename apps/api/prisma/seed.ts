@@ -41,6 +41,18 @@ type Item = [
   allergens?: string[],
 ];
 
+/** Pacing courses (Breads and Rice go with the mains). */
+const COURSE_OF: Record<string, 'STARTER' | 'MAIN' | 'DESSERT' | 'DRINK' | 'OTHER'> = {
+  Starters: 'STARTER',
+  'Main Course — Veg': 'MAIN',
+  'Main Course — Non-Veg': 'MAIN',
+  Breads: 'MAIN',
+  'Rice & Biryani': 'MAIN',
+  'Indo-Chinese': 'MAIN',
+  Desserts: 'DESSERT',
+  Beverages: 'DRINK',
+};
+
 const MENU: Record<string, { hi: string; items: Item[] }> = {
   Starters: {
     hi: 'स्टार्टर्स',
@@ -309,7 +321,13 @@ async function main(): Promise<void> {
   let itemCount = 0;
   for (const [ci, [category, { hi, items }]] of Object.entries(MENU).entries()) {
     const cat = await prisma.menuCategory.create({
-      data: { organizationId, outletId, name: { en: category, hi }, sortOrder: ci },
+      data: {
+        organizationId,
+        outletId,
+        name: { en: category, hi },
+        sortOrder: ci,
+        course: COURSE_OF[category] ?? 'OTHER',
+      },
     });
     for (const [
       ii,

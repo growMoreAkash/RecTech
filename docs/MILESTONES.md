@@ -331,3 +331,57 @@ gated confirmations, dispatch, dedupe, reminders, Meta webhook (verify token, fo
 the WhatsApp Cloud API request shape and permanent failures against a mock, the waitlist (QR join, duplicate phone,
 ETA in a full room, table ready → hold + message, seat, leave, remove, hold expiry), door arrivals with table
 suggestions; pytest for the arrival grouper, the `party.arrived` contract and synthetic door footage.
+
+## M10 — Service quality on the floor (done 2026-11-06)
+
+- **Idle-table alert**: every staff touch — a tap on the table's state, a waiter order, a served item, a ticked-off
+  task, or the camera seeing staff standing at the table — is recorded on the seating. A greeted/ordered/served
+  table nobody has visited for 15 min gets a **Check on table** task for its waiter (once per idle spell); at 25 min
+  managers get an **Idle table** alert. The next touch closes the task and resolves the alert.
+- **Course pacing** (off by default): each menu category has a course (drinks, starters, mains, desserts, other).
+  With pacing on, mains ordered while starters are still to come are **held**: the kitchen sees them greyed on its
+  ticket ("Held — waits for starters") but cannot start them. 8 min after the last starter is served the waiter gets
+  **Fire mains?**; one tap (task, staff app table sheet or floor drawer) sends them to the kitchen. Nobody fired them
+  after 20 min → they go by themselves. 15 min after the mains are served with nothing sweet ordered → **Offer
+  dessert**.
+- **Prep-time ETAs**: each item that reaches the kitchen gets a predicted ready time — the dish's median
+  queued→ready time over the last 28 days (≥ 5 samples), else the station's, else 15 min — stretched by how many
+  items the station already has waiting (+5 % each, at most ×2). Guests see "Ready in about 12 min" on My orders;
+  the KDS shows "due 13:42" (red "late" after); reports show how many items were ready within ±5 min of the ETA.
+- **Mid-meal check-in**: 12 min after the first food is served, the guest QR page asks "How's everything?" once per
+  phone. 👍 says thanks; 👎 (with an optional comment) immediately raises a **Guests are not happy** alert — managers'
+  phones buzz — and a **service recovery** task in the managers' inbox.
+- **Dirty-table check (camera)**: YOLOX's tableware classes (cup, bowl, bottle, wine glass, fork, knife, spoon)
+  inside a table zone with nobody seated, for 20 s after occupancy has ended → `table.dirty` → a _Vacant_ table goes
+  back to _Needs cleaning_ with a cleaning task (seating someone there then raises the existing "seated at an
+  uncleaned table" alert). Only the event leaves the box. On synthetic footage: 5/5 dirty tables found, no false
+  alarms, cups during the meal never count; occupancy accuracy unchanged.
+- **Tips per waiter**: an optional tip on counter payments and on the guest pay sheet (no tip / 5 / 10 / 15 % /
+  other). Online, the tip is in the same Razorpay checkout but stored separately (`Payment.tipPaise`); it is never
+  on the bill, the invoice or its GST. Tips go to the serving waiter at payment time; reports show tips per waiter
+  and the total (not counted as sales).
+
+Demo (seed data; `pnpm dev`):
+
+1. Settings → **Service on the floor**: tick _Course pacing_ (for a quick demo set the minutes to 1) → Save. Menu →
+   each category shows its course (seeded: Starters; mains, breads, rice and Indo-Chinese are Mains; Desserts;
+   Beverages are Drinks).
+2. Staff app (waiter 1001): seat T1, greet, **Take order**: Paneer Tikka + Dal Makhani → the table sheet shows
+   "1 item waits for the starters"; KDS `curry` shows the Dal greyed as _Held_; KDS `tandoor` shows the Paneer with "due 13:42".
+3. KDS: Paneer → Ready; staff app: **Served**. After the prompt time the waiter's inbox shows **Table T1 finished
+   starters — fire mains?** → **Fire mains** → the Dal can now be cooked on KDS `curry`.
+4. Guest: scan T1's QR, order a dessert, have it served; after the check-in time the menu page shows **How's
+   everything?** → 👎 "Food is cold" → the dashboard Alerts list shows _Guests are not happy_ and the manager's
+   tasks show the recovery task.
+5. Leave a table alone after greeting → after the nudge time the waiter gets **Check on table T1**; tap the table
+   (any action) → it disappears.
+6. Bills → pay T1 with a ₹50 tip → Reports: _Tips (not in sales)_ ₹50 and the waiter's tips column.
+7. Camera: `uv run ds-vision synth --out samples` then `uv run ds-vision eval --detector synthetic --video
+samples/dining-room.mp4 --labels samples/dining-room.labels.csv --zones samples/dining-room.zones.json --dirty
+samples/dining-room.dirty.csv` prints the dirty-tables line.
+
+Automated: pure rules (idle episodes, pacing prompt/auto-fire, dessert, mid-meal timing, prep medians/load/ETA,
+accuracy, tips) and the CAMERA_DIRTY transition; integration tests for idle nudges/alerts and touches, held mains,
+KDS held items, the fire endpoint and auto-fire, dessert offers, guest check-in and thumbs-down recovery, tips at the
+counter and in Razorpay checkouts, the day report, `table.dirty` from a signed edge batch and the settings ladder;
+pytest for the dirty check, tableware in zones and synthetic dirty footage.

@@ -6,6 +6,8 @@ import {
   type GuestAction,
   guestActionSchema,
   guestSessionSchema,
+  type MidMealFeedbackInput,
+  midMealFeedbackSchema,
   type OrderLineInput,
 } from '@dinesense/shared';
 import { Public } from '../auth/decorators';
@@ -96,5 +98,18 @@ export class GuestController {
   async action(@Guest() g: GuestClaims, @Body(new ZodPipe(guestActionSchema)) body: { type: GuestAction }) {
     await this.limit.hit(`g-action:${g.seat}:${body.type}`, 3, 120);
     return this.guests.action(g, body.type);
+  }
+
+  /** "How's everything?" during the meal. */
+  @Post('feedback')
+  @UseGuards(GuestGuard)
+  @ApiHeader({ name: 'x-guest-token', required: true })
+  @ApiZodBody(midMealFeedbackSchema)
+  async feedback(
+    @Guest() g: GuestClaims,
+    @Body(new ZodPipe(midMealFeedbackSchema)) body: MidMealFeedbackInput,
+  ) {
+    await this.limit.hit(`g-feedback:${g.seat}`, 10, 600);
+    return this.guests.feedback(g, body);
   }
 }

@@ -1,14 +1,19 @@
 import type { Task } from './types';
 
 /** What finishing a task means for staff — the button the inbox shows. */
-export type TaskAction = 'done' | 'greet' | 'clean' | 'openTable';
+export type TaskAction = 'done' | 'greet' | 'clean' | 'fire' | 'openTable';
 
 export function taskAction(type: Task['type']): TaskAction {
   switch (type) {
     case 'CALL_WAITER':
     case 'WATER':
     case 'CUTLERY':
+    case 'CHECK_TABLE':
+    case 'OFFER_DESSERT':
+    case 'SERVICE_RECOVERY':
       return 'done';
+    case 'FIRE_COURSE':
+      return 'fire';
     case 'GREET':
       return 'greet';
     case 'CLEAN':
@@ -24,13 +29,17 @@ export function taskAction(type: Task['type']): TaskAction {
 /** Urgency order for the inbox: guests waiting first. */
 const PRIORITY: Record<Task['type'], number> = {
   GREET: 0,
-  APPROVE_ORDER: 1,
-  SERVE: 2,
-  CALL_WAITER: 3,
-  BILL: 4,
-  WATER: 5,
-  CUTLERY: 6,
-  CLEAN: 7,
+  SERVICE_RECOVERY: 1,
+  APPROVE_ORDER: 2,
+  SERVE: 3,
+  CALL_WAITER: 4,
+  FIRE_COURSE: 5,
+  BILL: 6,
+  CHECK_TABLE: 7,
+  WATER: 8,
+  CUTLERY: 9,
+  OFFER_DESSERT: 10,
+  CLEAN: 11,
 };
 
 export const sortTasks = (tasks: Task[]) =>

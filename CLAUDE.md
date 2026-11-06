@@ -13,11 +13,12 @@ AI restaurant floor & guest-journey platform. Product brief: `docs/PRD.md`. Engi
   pay-at-table in test mode, departure/cleaning, reports) — **Phase 2 complete**. Phase 3 (`docs/PLAN-P3.md`,
   approved 2026-11-05): M8 (guest profiles + DPDP export/erase/retention, returning-guest recognition, online
   booking + manage link, table holds, no-shows, bookings/guests pages), M9 (guest messaging outbox with WhatsApp
-  Cloud API / console channel, booking confirm/change/reminder, digital waitlist with ETAs, door-camera party size).
-  Demo scripts: `docs/MILESTONES.md`.
-- **Next milestone:** M10 — service quality on the floor (idle-table alert, course pacing, prep-time ETAs, mid-meal
-  check-in, dirty-table camera check, tips per waiter). Open items: real footage for vision accuracy; Razorpay test
-  keys; Meta WhatsApp Business account + approved templates (`docs/whatsapp-templates.md`) to switch from console.
+  Cloud API / console channel, booking confirm/change/reminder, digital waitlist with ETAs, door-camera party size),
+  M10 (idle-table nudges/alerts from staff touches, course pacing with held mains, prep-time ETAs, mid-meal
+  check-in with service recovery, camera dirty-table check, tips per waiter). Demo scripts: `docs/MILESTONES.md`.
+- **Next milestone:** M11 — feedback, loyalty & growth (needs owner approval). Open items: real footage for vision
+  accuracy; Razorpay test keys; Meta WhatsApp Business account + approved templates (`docs/whatsapp-templates.md`)
+  to switch from console.
 
 ## How we work
 
@@ -59,6 +60,8 @@ apps/api            NestJS API (only component that changes table state)
   src/messaging     guest message outbox (MessageLog rows queued in the business tx), dispatcher (SKIP LOCKED leases),
                     WhatsApp Cloud API / console channel, signed Meta webhook (statuses, STOP opt-out)
   src/waitlist      digital waitlist (QR /w/* + host), ETAs from the pure predictWaits, table-ready holds + message
+  src/service-quality ServiceEngine sweep (idle nudge/alert, fire-mains prompt/auto-fire, dessert offer) over the
+                    pure decideService; prep-time ETAs live in src/ordering/prep-time.service.ts
   src/reports       day report (managers): seatings, greet times, per-waiter SLA, sales by hour, payments
   src/tasks         staff task inbox (accept / done)
   src/notifications NotifierService (socket + web push for every new task/alert), PushService (VAPID)
@@ -140,6 +143,17 @@ gen:edge-schema`; the Python tests validate events against that JSON Schema and 
 - Messaging: never call a provider from business code — `MessagingService.queue(tx, …)` inside the transaction;
   one row per purpose + entity (`dedupeKey`). WhatsApp consent is required to queue and re-checked at send time.
   Template texts live in i18n `whatsapp.*`; variable order in `MESSAGE_VARIABLES`; names `ds_<purpose>`.
+- Service quality: a "staff touch" (`touchSeating` in table-state) is any STAFF table transition, camera
+  staff-present, waiter order, served item or ticked-off task; it ends the idle episode (closes CHECK_TABLE,
+  resolves IDLE_TABLE). Every prompt is claimed by compare-and-set on its seating marker (`idleNudgedAt`,
+  `idleAlertedAt`, `fireMainsPromptAt`, `dessertOfferAt`) so parallel sweeps never double it. Rules are the pure
+  `decideService` (packages/shared/src/service), tested with explicit `now`.
+- Pacing: `OrderItem.course` snapshots the category's course; HELD items are on the KDS but only `fireCourse`
+  releases them. An item's `queuedAt` is when it reached the kitchen (restarted on approval/fire, keeping relative
+  order); `etaReadyAt` is stamped then for accuracy tracking.
+- Tips: `Payment.tipPaise` on top of `amountPaise`, never part of the bill, invoice or GST; attributed to the
+  serving waiter at payment time (`tipWaiterId`). Online orders charge amount + tip; capture splits the charged
+  amount back (tip comes out last).
 - Waitlist ETAs are ranges from `predictWaits` (packages/shared/src/booking/wait-time.ts): table free-at times from
   stage + this outlet's 28-day median dwell (fallback: turn times), then the queue played forward.
 - Commits: conventional commits (`feat(api): …`, `fix(vision): …`).
@@ -247,3 +261,10 @@ Seed credentials (dev only): email users `owner|manager|host|cashier@demo.dinese
 | 2026-11-05 | M9: waitlist "table ready" holds tables via HOLD_FOR_RESERVATION; expired holds released by the 30 s sweep           | Accepted         |
 | 2026-11-05 | M9: door party = tracks first seen (twice) in the entrance zone within 2 s of each other; host suggestion only       | Accepted         |
 | 2026-11-05 | M9: IoU tracker gains a centre-distance fallback (fast walkers at 3 fps) to avoid identity switches                  | Accepted         |
+| 2026-11-06 | M10: service rules run in one 30 s idempotent sweep (like holds), not per-seating BullMQ jobs                        | Accepted         |
+| 2026-11-06 | M10: idle = no staff touch since max(seated, greeted, last touch); only GREETED/ORDERED/SERVED tables are watched    | Accepted         |
+| 2026-11-06 | M10: pacing holds mains (not other courses) while a starter is unserved; off by default; auto-fire after 20 min      | Accepted         |
+| 2026-11-06 | M10: prep ETA = item median (≥5 samples, 28 d) → station median → 15 min, × (1 + 5 % per queued item, max ×2)        | Accepted         |
+| 2026-11-06 | M10: 👎 at check-in pushes managers (GUEST_UNHAPPY joins the pushed alerts) + SERVICE_RECOVERY task                  | Accepted         |
+| 2026-11-06 | M10: dirty check needs confirmed vacancy + tableware for 20 s; only VACANT → NEEDS_CLEANING (never touches seatings) | Accepted         |
+| 2026-11-06 | M10: e2e prepare moves the seeded shifts to cover "now" so the suite passes at any hour                              | Accepted         |

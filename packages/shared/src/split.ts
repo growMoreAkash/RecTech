@@ -165,6 +165,8 @@ export const guestPaySchema = z
       .string()
       .regex(/^s\d{1,2}$/)
       .optional(),
+    /** Tip on top, charged in the same checkout (never part of the bill or its GST). */
+    tipPaise: z.number().int().min(0).max(1_000_000).optional(),
   })
   .strict();
 export type GuestPayInput = z.infer<typeof guestPaySchema>;

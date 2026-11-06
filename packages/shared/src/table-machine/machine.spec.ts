@@ -378,6 +378,19 @@ describe('table state machine', () => {
     });
   });
 
+  describe('dirty-table camera check', () => {
+    it('marks a vacant table as needing cleaning with a clean task; otherwise does nothing', () => {
+      const r = run('VACANT', { type: 'CAMERA_DIRTY', seconds: 30 }, CAMERA);
+      expect(r.ok && r.next).toBe('NEEDS_CLEANING');
+      expect(effect(r, 'CREATE_TASK')?.task).toBe('CLEAN');
+      for (const from of ['NEEDS_CLEANING', 'SERVED', 'RESERVED', 'OUT_OF_SERVICE'] as const)
+        expect(run(from, { type: 'CAMERA_DIRTY', seconds: 30 }, CAMERA, { seating: null })).toMatchObject({
+          noop: true,
+        });
+      expect(run('VACANT', { type: 'CAMERA_DIRTY', seconds: 30 }, MANAGER).ok).toBe(false);
+    });
+  });
+
   describe('invariants over every state × event', () => {
     const events: [TableMachineEvent, Actor][] = [
       [{ type: 'HOST_SEAT' }, MANAGER],
@@ -393,6 +406,7 @@ describe('table state machine', () => {
       [{ type: 'CAMERA_VACATED' }, CAMERA],
       [{ type: 'CAMERA_STAFF_PRESENT', seconds: 60, confidence: 1 }, CAMERA],
       [{ type: 'GUEST_COUNT_CHANGED', guestCount: 2 }, CAMERA],
+      [{ type: 'CAMERA_DIRTY', seconds: 30 }, CAMERA],
       [{ type: 'ORDER_ACCEPTED', orderSource: 'QR' }, SYSTEM],
       [{ type: 'FIRST_ORDER_SERVED' }, SYSTEM],
       [{ type: 'PAYMENT_CAPTURED' }, SYSTEM],

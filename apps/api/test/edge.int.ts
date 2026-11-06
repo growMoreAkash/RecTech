@@ -360,6 +360,19 @@ describe('edge devices, cameras, zones and camera events (M6)', () => {
     expect(await status(t.tables.T3)).toBe('VACANT');
     expect((await prisma.task.findUniqueOrThrow({ where: { id: clean.id } })).status).toBe('DONE');
 
+    // M10: the camera still sees cups on the "clean" empty table → back to NEEDS_CLEANING with a new task.
+    await events([
+      evt('table.dirty', {
+        tableId: t.tables.T3,
+        confidence: 0.8,
+        payload: { seconds: 25, objects: 2, classes: ['cup'] },
+      }),
+    ]).expect(200);
+    expect(await status(t.tables.T3)).toBe('NEEDS_CLEANING');
+    expect(await prisma.task.count({ where: { tableId: t.tables.T3, type: 'CLEAN', status: 'OPEN' } })).toBe(
+      1,
+    );
+
     // T4: leaves without paying — the table stays as it was and managers get a critical alert.
     await dine(t.tables.T4);
     const before = await status(t.tables.T4);

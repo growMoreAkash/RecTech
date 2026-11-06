@@ -1,6 +1,6 @@
 'use client';
 
-import { ALLERGENS, localized, VEG_TYPES } from '@dinesense/shared';
+import { ALLERGENS, COURSES, localized, VEG_TYPES } from '@dinesense/shared';
 import { Button } from '@dinesense/ui/button';
 import { Field, Input, Select } from '@dinesense/ui/field';
 import { Money } from '@dinesense/ui/money';
@@ -13,7 +13,7 @@ import { api } from '@/lib/api';
 import { paiseToRupees, rupeesToPaise } from '@/lib/money-input';
 import { useMenu, useOutletMutation } from '@/lib/queries';
 import { useSession } from '@/lib/session';
-import type { Menu, MenuItem, ModifierGroup } from '@/lib/types';
+import type { Course, Menu, MenuItem, ModifierGroup } from '@/lib/types';
 import { cn, formText } from '@/lib/utils';
 
 const GST_SLABS = [0, 500, 1200, 1800];
@@ -35,6 +35,10 @@ export default function MenuPage() {
   );
   const addCategory = useOutletMutation(outlet.id, (name: string) =>
     api(`/outlets/${outlet.id}/menu/categories`, { method: 'POST', body: { name: { en: name } } }),
+  );
+
+  const setCourse = useOutletMutation(outlet.id, ({ id, course }: { id: string; course: Course }) =>
+    api(`/outlets/${outlet.id}/menu/categories/${id}`, { method: 'PATCH', body: { course } }),
   );
 
   if (!menu.data)
@@ -120,10 +124,30 @@ export default function MenuPage() {
           </nav>
           <section className="space-y-2">
             {manager ? (
-              <Button variant="secondary" onClick={() => setEditing('new')} disabled={!current}>
-                {t('addItem')}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="secondary" onClick={() => setEditing('new')} disabled={!current}>
+                  {t('addItem')}
+                </Button>
+                {current ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    {t('course.label')}
+                    <Select
+                      value={data.categories.find((c) => c.id === current)?.course ?? 'OTHER'}
+                      onChange={(e) => setCourse.mutate({ id: current, course: e.target.value as Course })}
+                      disabled={setCourse.isPending}
+                      className="w-36"
+                    >
+                      {COURSES.map((c) => (
+                        <option key={c} value={c}>
+                          {t(`course.${c}`)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                ) : null}
+              </div>
             ) : null}
+            <ErrorText error={setCourse.error} />
             <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
               {items.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-center gap-3 p-3">

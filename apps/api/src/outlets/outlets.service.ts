@@ -55,6 +55,26 @@ export class OutletsService {
           [{ path: 'vacancyConfirmSeconds', message: 'Must be at least occupancyConfirmSeconds' }],
         );
       }
+      if (
+        merged.idleNudgeMinutes &&
+        merged.idleAlertMinutes &&
+        merged.idleAlertMinutes <= merged.idleNudgeMinutes
+      ) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          HttpStatus.BAD_REQUEST,
+          'The idle-table alert must come after the nudge to the waiter',
+          [{ path: 'idleAlertMinutes', message: 'Must be longer than idleNudgeMinutes' }],
+        );
+      }
+      if (merged.autoFireMinutes && merged.autoFireMinutes <= merged.fireMainsAfterMinutes) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          HttpStatus.BAD_REQUEST,
+          'Automatic firing must come after the "fire mains" prompt',
+          [{ path: 'autoFireMinutes', message: 'Must be longer than fireMainsAfterMinutes' }],
+        );
+      }
       const after = await tx.outletSettings.update({ where: { outletId }, data: patch });
       await this.audit.record(
         ctx,

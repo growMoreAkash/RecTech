@@ -45,13 +45,18 @@ export const TASK_TYPES = values(
   'SERVE',
   'CLEAN',
   'APPROVE_ORDER',
+  'CHECK_TABLE',
+  'FIRE_COURSE',
+  'OFFER_DESSERT',
+  'SERVICE_RECOVERY',
 );
+export type TaskType = (typeof TASK_TYPES)[number];
 export const TASK_STATUSES = values('OPEN', 'ACCEPTED', 'DONE', 'CANCELLED', 'EXPIRED');
 export const VEG_TYPES = values('VEG', 'NON_VEG', 'EGG');
 export type VegType = (typeof VEG_TYPES)[number];
 export const ORDER_SOURCES = values('QR', 'WAITER');
 export const ORDER_STATUSES = values('PENDING_APPROVAL', 'ACCEPTED', 'REJECTED', 'CANCELLED');
-export const ORDER_ITEM_STATUSES = values('QUEUED', 'COOKING', 'READY', 'SERVED', 'VOID');
+export const ORDER_ITEM_STATUSES = values('HELD', 'QUEUED', 'COOKING', 'READY', 'SERVED', 'VOID');
 export const BILL_STATUSES = values('OPEN', 'FINALIZED', 'PAID', 'VOID');
 export const PAYMENT_METHODS = values('CASH', 'UPI', 'CARD', 'RAZORPAY', 'OTHER');
 export const PAYMENT_STATUSES = values('PENDING', 'CAPTURED', 'FAILED', 'REFUNDED');
@@ -67,7 +72,12 @@ export const ALERT_TYPES = values(
   'LEFT_WITHOUT_PAYING',
   'SEATED_AT_DIRTY_TABLE',
   'RESERVED_TABLE_TAKEN',
+  'IDLE_TABLE',
+  'GUEST_UNHAPPY',
 );
+export const COURSES = values('DRINK', 'STARTER', 'MAIN', 'DESSERT', 'OTHER');
+export type Course = (typeof COURSES)[number];
+export const FEEDBACK_KINDS = values('MID_MEAL');
 export const ALERT_SEVERITIES = values('INFO', 'WARNING', 'CRITICAL');
 export const ALERT_STATUSES = values('OPEN', 'ACKNOWLEDGED', 'RESOLVED');
 export const DEVICE_KINDS = values('STAFF_TERMINAL', 'KDS');
@@ -110,4 +120,6 @@ export const PRISMA_ENUMS = {
   ReservationChannel: RESERVATION_CHANNELS,
   MessageStatus: MESSAGE_STATUSES,
   WaitlistStatus: WAITLIST_STATUSES,
+  Course: COURSES,
+  FeedbackKind: FEEDBACK_KINDS,
 } as const;

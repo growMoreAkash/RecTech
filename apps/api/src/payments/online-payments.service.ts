@@ -37,7 +37,7 @@ export class OnlinePaymentsService {
     return { onlinePayments: await this.available(g.out), bills: await this.billing.guestBills(g) };
   }
 
-  async start(g: GuestClaims, billId: string, shareKey?: string) {
+  async start(g: GuestClaims, billId: string, shareKey?: string, tipPaise = 0) {
     if (!(await this.available(g.out)))
       throw new AppError(
         'PAYMENTS_UNAVAILABLE',
@@ -51,14 +51,22 @@ export class OnlinePaymentsService {
       shareKey,
       this.provider.name,
       audit,
+      tipPaise,
     );
     let orderId = payment.providerOrderId;
     if (!reused || !orderId) {
       try {
         ({ orderId } = await this.provider.createOrder({
-          amountPaise: payment.amountPaise,
+          // The tip rides in the same order but is noted separately; GST is on the bill amount only.
+          amountPaise: payment.amountPaise + payment.tipPaise,
           receipt: payment.id,
-          notes: { billId, invoice: bill.invoiceNumber ?? '', share: shareKey ?? '' },
+          notes: {
+            billId,
+            invoice: bill.invoiceNumber ?? '',
+            share: shareKey ?? '',
+            billAmountPaise: String(payment.amountPaise),
+            tipPaise: String(payment.tipPaise),
+          },
         }));
       } catch (e) {
         await this.billing.failOnline({ paymentId: payment.id }, 'order creation failed');
@@ -74,7 +82,9 @@ export class OnlinePaymentsService {
       provider: this.provider.name,
       keyId: this.provider.publicKey,
       orderId,
-      amountPaise: payment.amountPaise,
+      amountPaise: payment.amountPaise + payment.tipPaise,
+      billAmountPaise: payment.amountPaise,
+      tipPaise: payment.tipPaise,
       currency: 'INR',
       name: outlet.name,
       description: bill.invoiceNumber ?? '',

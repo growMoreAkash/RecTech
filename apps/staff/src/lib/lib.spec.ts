@@ -37,6 +37,8 @@ describe('task actions', () => {
     expect(taskAction('GREET')).toBe('greet');
     expect(taskAction('CLEAN')).toBe('clean');
     expect(taskAction('SERVE')).toBe('openTable');
+    expect(taskAction('FIRE_COURSE')).toBe('fire');
+    expect(taskAction('CHECK_TABLE')).toBe('done');
   });
 
   it('puts waiting guests first, then oldest first', () => {

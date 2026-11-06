@@ -1,6 +1,6 @@
 # DineSense — Phase 3 plan (guest growth, CRM, analytics)
 
-> Status: **approved by the owner** (2026-11-05). M8 and M9 done. Builds on the approved [`PLAN.md`](./PLAN.md) (P1–P2 done,
+> Status: **approved by the owner** (2026-11-05). M8, M9 and M10 done. Builds on the approved [`PLAN.md`](./PLAN.md) (P1–P2 done,
 > M0–M7). Source features: every **P3** row of [`PRD.md`](./PRD.md). P4 (voice agent, pre-order, no-show model,
 > chat ordering, hand-raise, plates/glass AI, demand forecast, native app) stays out; only extension points.
 

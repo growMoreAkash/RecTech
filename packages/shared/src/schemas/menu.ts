@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ORDER_ITEM_STATUSES, VEG_TYPES } from '../enums';
+import { COURSES, ORDER_ITEM_STATUSES, VEG_TYPES } from '../enums';
 
 const id = z.string().min(1).max(64);
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM');
@@ -47,6 +47,8 @@ export const categoryInputSchema = z
   .object({
     name: i18nTextSchema,
     sortOrder: z.number().int().min(0).max(10_000).optional(),
+    /** Course for pacing (mains wait for starters when the outlet turns pacing on). */
+    course: z.enum(COURSES).optional(),
     availabilityWindows: windows.optional(),
   })
   .strict();
@@ -139,7 +141,7 @@ export const rejectOrderSchema = z.object({ reason: z.string().trim().min(1).max
 /** KDS / floor item status changes. VOID needs a reason. */
 export const itemStatusSchema = z
   .object({
-    status: z.enum(ORDER_ITEM_STATUSES).exclude(['QUEUED']),
+    status: z.enum(ORDER_ITEM_STATUSES).exclude(['QUEUED', 'HELD']),
     voidReason: z.string().trim().min(1).max(140).optional(),
   })
   .strict()
@@ -197,6 +199,8 @@ export const paymentSchema = z
       .string()
       .regex(/^s\d{1,2}$/)
       .optional(),
+    /** Tip on top of the amount, for the serving waiter (never part of the bill). */
+    tipPaise: z.number().int().min(0).max(1_000_000).optional(),
   })
   .strict();
 export type PaymentInput = z.infer<typeof paymentSchema>;

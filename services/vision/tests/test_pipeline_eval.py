@@ -13,7 +13,7 @@ from jsonschema import Draft7Validator, FormatChecker
 from dinesense_vision.detect import Detection
 from dinesense_vision.detect.scripted import ScriptedDetector
 from dinesense_vision.detect.synthetic import SyntheticDetector
-from dinesense_vision.evaluate import evaluate, load_labels, load_zones
+from dinesense_vision.evaluate import evaluate, load_dirty, load_labels, load_zones
 from dinesense_vision.models import CameraConfig, EdgeSettings
 from dinesense_vision.pipeline import CameraPipeline
 from dinesense_vision.sources import iter_video
@@ -32,6 +32,24 @@ def test_eval_on_synthetic_footage_meets_the_target(tmp_path: Path) -> None:
     for s in report.tables.values():
         assert all(9 <= x <= 13 for x in s.occupy_latency)
     assert "target" in report.text()
+
+
+def test_dirty_tables_are_found_after_guests_leave_without_false_alarms(tmp_path: Path) -> None:
+    video = generate(tmp_path, "d", seconds=900, fps=3, seed=7)
+    dirty = load_dirty(tmp_path / "d.dirty.csv")
+    report = evaluate(
+        iter_video(video, 3),
+        load_labels(tmp_path / "d.labels.csv"),
+        load_zones(tmp_path / "d.zones.json"),
+        SyntheticDetector(),
+        EdgeSettings(),
+        dirty=dirty,
+    )
+    assert report.dirty.expected >= 3, report.text()
+    assert report.dirty.detected == report.dirty.expected, report.text()
+    assert report.dirty.spurious == 0, report.text()
+    # Cups during the meal never count: every report comes after the table was confirmed empty.
+    assert all(lat >= 90 + 20 for lat in report.dirty.latency), report.dirty.latency
 
 
 def test_pipeline_events_are_contract_valid_and_include_staff_presence(contracts: dict[str, Any]) -> None:

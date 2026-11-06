@@ -18,6 +18,7 @@ import { NotifierService } from '../notifications/notifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { SeatingEvents } from './seating-events';
+import { touchSeating } from './staff-touch';
 import { SLA_SCHEDULER, type SlaScheduler } from './sla-scheduler';
 import { type TableLive, TableViews } from './table-views';
 
@@ -97,11 +98,13 @@ export class TableStateService {
       seatedAt?: Date;
       alerts: Alert[];
       tasks: Task[];
+      touched: Task[];
       closedSeatingId?: string;
     } = {
       sla: [],
       alerts: [],
       tasks: [],
+      touched: [],
     };
 
     const out = await this.prisma.$transaction(async (tx) => {
@@ -138,6 +141,10 @@ export class TableStateService {
       if (!result.ok) {
         const [code, status] = REJECT_ERRORS[result.reason];
         throw new AppError(code, status, result.message, { from: result.from, event: input.event.type });
+      }
+      // Any staff action on the table, or staff seen standing at it, ends an idle episode.
+      if (seating && (input.actor.kind === 'STAFF' || input.event.type === 'CAMERA_STAFF_PRESENT')) {
+        after.touched = await touchSeating(tx, seating.id, input.occurredAt ?? new Date());
       }
       if (result.noop) return { result, duplicate: false, targetIds: [table.id] };
 
@@ -317,6 +324,7 @@ export class TableStateService {
     if (out.result && !out.result.noop) this.broadcast(input.outletId, tables, after.alerts);
     await this.runTimers(input, after);
     // Push/socket notifications must never fail a committed transition.
+    after.touched.forEach((t) => this.notifier.taskUpdated(t));
     await Promise.allSettled([
       ...after.tasks.map((t) => this.notifier.taskCreated(t)),
       ...after.alerts.map((a) => this.notifier.alertRaised(a)),

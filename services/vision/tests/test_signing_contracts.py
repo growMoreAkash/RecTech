@@ -58,6 +58,14 @@ def test_every_event_builder_produces_a_contract_valid_event(contracts: dict[str
             confidence=0.7,
             payload={"seconds": 12.5, "trackId": 7},
         ),
+        events.table_event(
+            "table.dirty",
+            camera_id="cam",
+            table_id="t",
+            at=now,
+            confidence=0.8,
+            payload={"seconds": 21.0, "objects": 3, "classes": ["bowl", "cup"]},
+        ),
         events.camera_health(
             camera_id="cam", at=now, status="ok", fps=3, latency_ms=40, last_frame_at=now, reconnects=0
         ),

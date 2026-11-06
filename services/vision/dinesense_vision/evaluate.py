@@ -46,6 +46,32 @@ def load_arrivals(path: Path) -> list[tuple[float, int]]:
         return [(float(r["time_s"]), int(r["size"])) for r in csv.DictReader(f)]
 
 
+def load_dirty(path: Path) -> dict[str, list[Interval]]:
+    out: dict[str, list[Interval]] = defaultdict(list)
+    with path.open(newline="") as f:
+        for r in csv.DictReader(f):
+            out[r["table_id"].strip()].append((float(r["start_s"]), float(r["end_s"])))
+    return dict(out)
+
+
+@dataclass
+class DirtyScore:
+    #: Labelled episodes long enough that a check must fire (past vacancy + dirty confirmation).
+    expected: int = 0
+    detected: int = 0
+    spurious: int = 0
+    latency: list[float] = field(default_factory=list)
+
+    def text(self) -> str:
+        if not self.expected and not self.spurious:
+            return ""
+        lat = sum(self.latency) / len(self.latency) if self.latency else float("nan")
+        return (
+            f"dirty tables: detected {self.detected}/{self.expected}, false alarms {self.spurious}, "
+            f"mean time after guests left {lat:.0f}s"
+        )
+
+
 @dataclass
 class ArrivalScore:
     parties: int = 0
@@ -90,6 +116,7 @@ class Report:
     tables: dict[str, TableScore]
     events: int
     arrivals: ArrivalScore = field(default_factory=ArrivalScore)
+    dirty: DirtyScore = field(default_factory=DirtyScore)
 
     def _sum(self, attr: str) -> int:
         return sum(int(getattr(s, attr)) for s in self.tables.values())
@@ -128,6 +155,7 @@ class Report:
             f"occupied precision / recall:         {self.precision:.1%} / {self.recall:.1%}",
             f"events emitted:                      {self.events}",
             *([self.arrivals.text()] if self.arrivals.parties else []),
+            *([self.dirty.text()] if self.dirty.text() else []),
         ]
         return "\n".join(lines)
 
@@ -142,6 +170,7 @@ def evaluate(
     min_confidence: float = 0.35,
     door: tuple[tuple[float, float], ...] | None = None,
     arrivals: list[tuple[float, int]] | None = None,
+    dirty: dict[str, list[Interval]] | None = None,
 ) -> Report:
     camera = CameraConfig.model_validate(
         {
@@ -153,6 +182,7 @@ def evaluate(
         }
     )
     seen_arrivals: list[tuple[float, int]] = []
+    dirty_seen: dict[str, list[float]] = defaultdict(list)
     pipe = CameraPipeline(camera, settings, detector, min_confidence=min_confidence)
     scores = {z.table_id: TableScore() for z in zones}
     emitted: dict[str, list[tuple[float, str]]] = defaultdict(list)
@@ -164,6 +194,8 @@ def evaluate(
         for e in result.events:
             if e["type"] == "party.arrived":
                 seen_arrivals.append((t, int(e["payload"]["count"])))
+            if e["type"] == "table.dirty":
+                dirty_seen[e["tableId"]].append(t)
             if e["type"] in ("table.occupied", "table.vacated"):
                 emitted[e["tableId"]].append((t, e["type"]))
         n_events += len(result.events)
@@ -229,4 +261,20 @@ def evaluate(
             arrival_score.exact += got == size
             arrival_score.abs_error += abs(got - size)
         arrival_score.spurious = len(seen_arrivals) - len(matched)
-    return Report(scores, n_events, arrival_score)
+    dirty_score = DirtyScore()
+    if dirty is not None:
+        must_wait = settings.vacancy_confirm_seconds + settings.dirty_confirm_seconds + tolerance_s
+        for table, seen in dirty_seen.items():
+            taken: set[int] = set()
+            for a, b in dirty.get(table, []):
+                hit = next((i for i, t in enumerate(seen) if i not in taken and a <= t <= b + 5), None)
+                if hit is not None:
+                    taken.add(hit)
+                    dirty_score.latency.append(seen[hit] - a)
+            dirty_score.spurious += len(seen) - len(taken)
+        for table, intervals in dirty.items():
+            for a, b in intervals:
+                if b - a >= must_wait and b <= t_end:
+                    dirty_score.expected += 1
+                    dirty_score.detected += any(a <= t <= b + 5 for t in dirty_seen.get(table, []))
+    return Report(scores, n_events, arrival_score, dirty_score)

@@ -31,6 +31,7 @@ class EdgeSettings(_Model):
     occupancy_confirm_seconds: float = Field(30, alias="occupancyConfirmSeconds")
     vacancy_confirm_seconds: float = Field(90, alias="vacancyConfirmSeconds")
     staff_present_seconds: float = Field(10, alias="staffPresentSeconds")
+    dirty_confirm_seconds: float = Field(20, alias="dirtyConfirmSeconds")
 
 
 class EdgeConfig(_Model):

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkoutOptions } from './checkout';
-import { payTargets } from './pay';
+import { payTargets, tipPaise } from './pay';
 import type { GuestBill } from './types';
 
 const bill = (over: Partial<GuestBill>): GuestBill => ({
@@ -54,5 +54,16 @@ describe('checkout options', () => {
     );
     expect(o).toMatchObject({ key: 'rzp_test_x', order_id: 'order_1', amount: 100, currency: 'INR' });
     expect(o).not.toHaveProperty('prefill');
+  });
+});
+
+describe('tips', () => {
+  it('works out percentage tips in whole rupees and validates custom amounts', () => {
+    expect(tipPaise({ kind: 'pct', pct: 10 }, 75_600)).toBe(7_600);
+    expect(tipPaise({ kind: 'pct', pct: 0 }, 75_600)).toBe(0);
+    expect(tipPaise({ kind: 'custom', rupees: '50' }, 75_600)).toBe(5_000);
+    expect(tipPaise({ kind: 'custom', rupees: '' }, 75_600)).toBe(0);
+    expect(tipPaise({ kind: 'custom', rupees: '-5' }, 75_600)).toBeNull();
+    expect(tipPaise({ kind: 'custom', rupees: '99999' }, 75_600)).toBeNull();
   });
 });

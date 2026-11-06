@@ -12,6 +12,8 @@ const PUSHED_ALERTS = new Set<string>([
   'LEFT_WITHOUT_PAYING',
   'CAMERA_OFFLINE',
   'EDGE_OFFLINE',
+  // Service recovery only works while the guests are still at the table.
+  'GUEST_UNHAPPY',
 ]);
 
 const fill = (s: string, vars: Record<string, string>) =>

@@ -56,6 +56,23 @@ export class OrdersController {
     });
   }
 
+  /** Course pacing: send this table's held courses (mains) to the kitchen now. */
+  @Post('tables/:tableId/fire')
+  @HttpCode(200)
+  @Roles('OWNER', 'MANAGER', 'WAITER', 'HOST')
+  async fire(
+    @Ctx() ctx: RequestContext,
+    @Param('outletId') outletId: string,
+    @Param('tableId') tableId: string,
+  ) {
+    const link = await this.prisma.forOrg(ctx.user.org).seatingTable.findFirst({
+      where: { tableId, isOpen: true, table: { outletId } },
+      select: { seatingId: true },
+    });
+    if (!link) throw new AppError('NO_OPEN_SEATING', 409, 'This table has no open seating');
+    return this.ordering.fireCourse(ctx.user.org, outletId, link.seatingId, actorFromContext(ctx), 'manual');
+  }
+
   /** Orders of the table's current seating (drawer). */
   @Get('tables/:tableId/orders')
   @Authenticated()

@@ -43,6 +43,17 @@ export const outletSettingsSchema = z
     waitlistEnabled: z.boolean(),
     waitlistHoldMinutes: z.number().int().min(2).max(60),
     waitlistMaxPartySize: z.number().int().min(1).max(60),
+    /** Idle table: nudge the serving waiter after this long without a staff touch (0 = off). */
+    idleNudgeMinutes: z.number().int().min(0).max(120),
+    /** Idle table: alert managers after this long (0 = off; must be after the nudge). */
+    idleAlertMinutes: z.number().int().min(0).max(180),
+    pacingEnabled: z.boolean(),
+    fireMainsAfterMinutes: z.number().int().min(0).max(60),
+    /** Held mains go to the kitchen anyway this long after the starters were served (0 = never). */
+    autoFireMinutes: z.number().int().min(0).max(120),
+    dessertOfferMinutes: z.number().int().min(0).max(120),
+    midMealCheckMinutes: z.number().int().min(0).max(120),
+    dirtyConfirmSeconds: seconds(5, 600),
   })
   .strict();
 export type OutletSettingsInput = z.infer<typeof outletSettingsSchema>;
@@ -84,6 +95,14 @@ export const DEFAULT_OUTLET_SETTINGS: OutletSettingsInput = {
   waitlistEnabled: false,
   waitlistHoldMinutes: 10,
   waitlistMaxPartySize: 10,
+  idleNudgeMinutes: 15,
+  idleAlertMinutes: 25,
+  pacingEnabled: false,
+  fireMainsAfterMinutes: 8,
+  autoFireMinutes: 20,
+  dessertOfferMinutes: 15,
+  midMealCheckMinutes: 12,
+  dirtyConfirmSeconds: 20,
 };
 
 export const paginationSchema = z.object({

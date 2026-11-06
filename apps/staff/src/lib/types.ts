@@ -29,7 +29,19 @@ export interface Floor {
 
 export interface Task {
   id: string;
-  type: 'GREET' | 'CALL_WAITER' | 'WATER' | 'CUTLERY' | 'BILL' | 'SERVE' | 'CLEAN' | 'APPROVE_ORDER';
+  type:
+    | 'GREET'
+    | 'CALL_WAITER'
+    | 'WATER'
+    | 'CUTLERY'
+    | 'BILL'
+    | 'SERVE'
+    | 'CLEAN'
+    | 'APPROVE_ORDER'
+    | 'CHECK_TABLE'
+    | 'FIRE_COURSE'
+    | 'OFFER_DESSERT'
+    | 'SERVICE_RECOVERY';
   status: 'OPEN' | 'ACCEPTED';
   tableId: string | null;
   tableLabel: string | null;
@@ -57,7 +69,8 @@ export interface OrderItem {
   quantity: number;
   modifiers: { name: unknown }[];
   note: string | null;
-  status: 'QUEUED' | 'COOKING' | 'READY' | 'SERVED' | 'VOID';
+  status: 'HELD' | 'QUEUED' | 'COOKING' | 'READY' | 'SERVED' | 'VOID';
+  etaReadyAt?: string | null;
 }
 
 export interface Order {

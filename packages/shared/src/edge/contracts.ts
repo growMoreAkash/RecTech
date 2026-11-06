@@ -48,6 +48,20 @@ export const edgeEventSchema = z.discriminatedUnion('type', [
     .strict(),
   z
     .object({
+      ...tableEvent,
+      type: z.literal('table.dirty'),
+      /** Tableware (COCO cup, bowl, bottle, wine glass, fork, knife, spoon) on a table with nobody seated. */
+      payload: z
+        .object({
+          seconds: z.number().min(0),
+          objects: z.number().int().min(1).max(100),
+          classes: z.array(z.string().max(20)).max(10),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
       ...base,
       type: z.literal('party.arrived'),
       cameraId: id,
